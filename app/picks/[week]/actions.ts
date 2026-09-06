@@ -13,14 +13,19 @@ async function requireUserId(): Promise<number> {
 }
 
 /**
- * Everything a changed pick feeds. A pick moves the standings, the standings
- * decide the playoff seeds, and the seeds lay out the bracket -- so a change
- * has to be carried all the way down, or the bracket keeps showing the field
- * the old picks produced.
+ * Everything downstream of a changed pick. A pick moves the standings, the
+ * standings decide the playoff seeds, and the seeds lay out the bracket -- so
+ * a change has to be carried all the way down, or the bracket keeps showing
+ * the field the old picks produced.
+ *
+ * Note what is NOT here: the picks page itself. Revalidating the route the
+ * user is standing on made Next re-fetch and re-apply it like a navigation
+ * after every single click, which threw the page back to the top and made
+ * the card flash as it briefly re-rendered from stale props. The board holds
+ * its own state while it is open (see components/WeekBoard.tsx), so it does
+ * not need the server to tell it what was just clicked.
  */
-function revalidateAllAffected(week: number) {
-  revalidatePath(`/picks/${week}`);
-  revalidatePath("/picks");
+function revalidateDownstream() {
   revalidatePath("/standings");
   revalidatePath("/playoffs");
   revalidatePath("/leaderboard");
@@ -28,6 +33,17 @@ function revalidateAllAffected(week: number) {
   // does not say which, so revalidate the whole segment.
   revalidatePath("/teams/[teamId]", "page");
   revalidatePath("/");
+}
+
+/**
+ * As above, plus the picks page. Used by the bulk actions -- they rewrite
+ * many rows at once, so the board has to be re-seeded from the server rather
+ * than trying to mirror the change locally.
+ */
+function revalidateIncludingWeek(week: number) {
+  revalidatePath(`/picks/${week}`);
+  revalidatePath("/picks");
+  revalidateDownstream();
 }
 
 /**
@@ -43,7 +59,6 @@ async function settleWeek(userId: number, week: number) {
     games.length > 0 &&
     games.every((game) => game.predictedWinnerTeamId !== null);
   if (complete) await submitWeek(userId, week);
-  revalidateAllAffected(week);
 }
 
 export async function savePickAction(formData: FormData) {
@@ -62,6 +77,7 @@ export async function savePickAction(formData: FormData) {
 
   await savePick(userId, { gameId, winnerTeamId, marginBucket });
   await settleWeek(userId, week);
+  revalidateDownstream();
 }
 
 /**
@@ -74,7 +90,7 @@ export async function clearWeekAction(formData: FormData) {
   if (!Number.isInteger(week)) throw new Error("Invalid week");
 
   await clearWeek(userId, week);
-  revalidateAllAffected(week);
+  revalidateIncludingWeek(week);
 }
 
 /**
@@ -120,4 +136,5 @@ export async function fillWeekAction(formData: FormData) {
     });
   }
   await settleWeek(userId, week);
+  revalidateIncludingWeek(week);
 }

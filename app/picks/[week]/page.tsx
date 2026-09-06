@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { auth } from "@/auth";
-import { GamePicker } from "@/components/GamePicker";
-import { WeekActions } from "@/components/WeekActions";
+import { WeekBoard } from "@/components/WeekBoard";
 import { WeekPager } from "@/components/WeekPager";
 import { getWeekLabel } from "@/lib/format";
 import { CURRENT_SEASON, WEEKS, isValidWeek } from "@/lib/nfl";
@@ -28,43 +27,30 @@ export default async function PicksPage({ params }: PageProps<"/picks/[week]">) 
     getWeekGames(userId, week),
     getSubmittedWeeks(userId),
   ]);
-  const teamById = new Map(teams.map((t) => [t.id, t]));
-
   const now = new Date();
-  const picked = games.filter((g) => g.predictedWinnerTeamId !== null).length;
-  const open = games.filter((g) => !isLocked(g, now));
-  const unpickedOpen = open.filter((g) => g.predictedWinnerTeamId === null);
+  const lockedGameIds = games.filter((g) => isLocked(g, now)).map((g) => g.id);
   const withoutLine = games.filter((g) => g.spread === null).length;
+
+  // Remount key for WeekBoard, which owns the week's picks once the page is
+  // open. An individual pick deliberately does NOT revalidate this route, so
+  // this signature is unchanged and the client's state survives. Fill and
+  // Clear rewrite many rows and DO revalidate, which changes the signature
+  // and re-seeds the board from the server.
+  const picksSignature = games
+    .map(
+      (g) =>
+        `${g.id}:${g.predictedWinnerTeamId ?? ""}:${g.predictedMarginBucket ?? ""}`,
+    )
+    .join("|");
 
   return (
     <div className="space-y-5">
       <WeekPager week={week} />
 
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">
-            {getWeekLabel(week)}{" "}
-            <span className="text-ink-muted">· {CURRENT_SEASON}</span>
-          </h1>
-          <p className="mt-1 text-sm text-ink-muted">
-            {games.length === 0
-              ? "No games scheduled."
-              : `${picked} of ${games.length} picked` +
-                (submitted.has(week) ? " · week complete" : "")}
-          </p>
-        </div>
-        {games.length > 0 && (
-          <WeekActions
-            week={week}
-            fillableCount={
-              unpickedOpen.filter((g) => g.spread !== null && g.spread !== 0).length
-            }
-            clearableCount={open.filter((g) => g.predictedWinnerTeamId !== null).length}
-            fillAction={fillWeekAction}
-            clearAction={clearWeekAction}
-          />
-        )}
-      </div>
+      <h1 className="text-2xl font-bold">
+        {getWeekLabel(week)}{" "}
+        <span className="text-ink-muted">· {CURRENT_SEASON}</span>
+      </h1>
 
       {/* Weeks read left to right like the schedule does; the current one is
           marked so the strip is navigable without counting. */}
@@ -98,30 +84,17 @@ export default async function PicksPage({ params }: PageProps<"/picks/[week]">) 
         </p>
       )}
 
-      {games.length === 0 ? (
-        <p className="rounded border border-line bg-surface p-6 text-center text-ink-muted">
-          This week has not been loaded yet.
-        </p>
-      ) : (
-        <ul className="grid gap-3 lg:grid-cols-2">
-          {games.map((game) => {
-            const home = teamById.get(game.homeTeamId);
-            const away = teamById.get(game.awayTeamId);
-            if (!home || !away) return null;
-            return (
-              <GamePicker
-                key={game.id}
-                game={game}
-                home={home}
-                away={away}
-                locked={isLocked(game, now)}
-                week={week}
-                saveAction={savePickAction}
-              />
-            );
-          })}
-        </ul>
-      )}
+      <WeekBoard
+        key={picksSignature}
+        week={week}
+        games={games}
+        teams={teams}
+        lockedGameIds={lockedGameIds}
+        saveAction={savePickAction}
+        fillAction={fillWeekAction}
+        clearAction={clearWeekAction}
+      />
+
     </div>
   );
 }

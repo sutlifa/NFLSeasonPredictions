@@ -1,22 +1,22 @@
 "use client";
 
-import { useOptimistic, useState, useTransition } from "react";
 import { TeamLogo } from "@/components/TeamLogo";
 import { formatKickoff, formatSpread } from "@/lib/format";
 import { MARGIN_BUCKETS } from "@/lib/margin";
 import { gradeMargin, gradeStraightUp, type PickGrade } from "@/lib/grade";
 import type { Game, Team } from "@/lib/types";
 
+export type Pick = { winner: number | null; bucket: number | null };
+
 type Props = {
   game: Game;
   home: Team;
   away: Team;
   locked: boolean;
-  week: number;
-  saveAction: (formData: FormData) => Promise<void>;
+  pick: Pick;
+  error: string | null;
+  onPick: (gameId: number, next: Pick) => void;
 };
-
-type Pick = { winner: number | null; bucket: number | null };
 
 const GRADE_STYLES: Record<PickGrade, string> = {
   win: "border-win/60 bg-win/15 text-win",
@@ -35,47 +35,31 @@ const GRADE_LABELS: Record<PickGrade, string> = {
 /**
  * One game: pick a winner, then how big the margin will be.
  *
+ * Fully controlled, with no state and no transition of its own. The week's
+ * picks live in WeekBoard, which saves them in the background. An earlier
+ * version held its selection in useOptimistic here and visibly reverted on
+ * every save; the note in WeekBoard explains why.
+ *
  * The point spread is shown beside each side but is NOT a control -- the pool
  * picks winners only. It is rendered next to the team it applies to rather
  * than as one line for the game, so "who is favoured, and by how much" reads
  * off the same row as the button you are about to press.
- *
- * The selection is held in useOptimistic, NOT useState, and this matters more
- * than it looks. useState seeds itself once on mount and ignores later props,
- * so this component used to keep showing a pick that the server had already
- * deleted -- "Clear week" removed every row, the page re-rendered with fresh
- * props saying nothing was picked, and all sixteen cards carried on showing
- * the old selection. The clear appeared to do nothing at all. useOptimistic
- * gives the same instant feedback but falls back to the server's value the
- * moment no update of this component's own is in flight, so a clear, a fill,
- * or an edit made in another tab all land correctly.
- *
- * Saving happens per game rather than behind one "save week" button. A week
- * is 13-16 games; batching them means one mis-click loses the lot, and a
- * half-finished week could not be left safely.
  */
 export function GamePicker({
   game,
   home,
   away,
   locked,
-  week,
-  saveAction,
+  pick,
+  error,
+  onPick,
 }: Props) {
-  const serverPick: Pick = {
-    winner: game.predictedWinnerTeamId,
-    bucket: game.predictedMarginBucket,
-  };
-  const [pick, applyOptimistic] = useOptimistic<Pick, Pick>(
-    serverPick,
-    (_current, next) => next,
-  );
-  const [, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
-
   const isFinal =
     game.status === "final" && game.homeScore !== null && game.awayScore !== null;
 
+  // Grades read the SERVER's pick, not the local one. A finished game cannot
+  // be edited, so the two agree -- and reading the stored value keeps the
+  // badge honest about what was actually saved and scored.
   const grade: PickGrade = isFinal
     ? gradeStraightUp(
         game.predictedWinnerTeamId,
@@ -96,47 +80,24 @@ export function GamePicker({
       )
     : "none";
 
-  function submit(next: Pick) {
-    // A pick needs both halves before it can be stored, so the form waits
-    // rather than saving a winner with a placeholder margin.
-    if (next.winner === null || next.bucket === null) return;
-
-    const formData = new FormData();
-    formData.set("gameId", String(game.id));
-    formData.set("week", String(week));
-    formData.set("winnerTeamId", String(next.winner));
-    formData.set("marginBucket", String(next.bucket));
-
-    setError(null);
-    startTransition(async () => {
-      // Must be applied inside the transition, or React discards it.
-      applyOptimistic(next);
-      try {
-        await saveAction(formData);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not save that pick");
-      }
-    });
-  }
-
   function pickWinner(teamId: number) {
     if (locked) return;
     // Default the margin to a one-score game so a single tap is already a
     // complete pick; the user can still change it.
-    submit({ winner: teamId, bucket: pick.bucket ?? 1 });
+    onPick(game.id, { winner: teamId, bucket: pick.bucket ?? 1 });
   }
 
   function pickBucket(id: number) {
     if (locked || pick.winner === null) return;
-    submit({ winner: pick.winner, bucket: id });
+    onPick(game.id, { winner: pick.winner, bucket: id });
   }
 
   /**
    * Each side is labelled rather than relying on left-to-right order. Away
    * first, home second is the NFL convention, but a two-button row gives no
    * hint of that on its own -- and on a neutral-site game "home" is a
-   * scheduling fiction anyway, so those say "designated home" instead of
-   * implying the club is actually hosting.
+   * scheduling fiction anyway, so those say so rather than implying the club
+   * is actually hosting.
    */
   const sideLabel = (isHome: boolean) => {
     if (!isHome) return "Away";
@@ -204,10 +165,7 @@ export function GamePicker({
             are the international fixtures, so say where it is actually
             played. */}
         {game.isNeutralSite && (
-          <span
-            className="text-neutral-site"
-            title={game.venueName ?? undefined}
-          >
+          <span className="text-neutral-site" title={game.venueName ?? undefined}>
             {game.venueLocation
               ? `Neutral site · ${game.venueLocation}`
               : "Neutral site"}
@@ -268,8 +226,8 @@ export function GamePicker({
           </span>
           {/* Only shown when the margin was actually in play -- on a game
               whose winner was missed there is no margin to have been right
-              about, and a "Wrong" badge there would read as a second
-              penalty for the same mistake. */}
+              about, and a "Wrong" badge there would read as a second penalty
+              for the same mistake. */}
           {marginGrade !== "none" && (
             <span
               className={`rounded border px-2 py-0.5 ${GRADE_STYLES[marginGrade]}`}
