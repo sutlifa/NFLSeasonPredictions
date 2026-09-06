@@ -47,7 +47,7 @@ export default async function HomePage() {
       <div className="mx-auto mt-12 max-w-lg text-center">
         <h1 className="text-3xl font-bold">NFL Season Predictions</h1>
         <p className="mt-3 text-ink-muted">
-          Pick every game straight up and against the spread, follow the weekly
+          Pick every game — who wins, and by how much — follow the weekly
           leaderboard, and watch your season play out through real NFL
           standings and the playoff bracket.
         </p>
@@ -157,14 +157,11 @@ export default async function HomePage() {
         <Card href="/leaderboard" title="Leaderboard">
           {me && me.gamesGraded > 0 ? (
             <>
-              <span className="text-2xl font-bold text-ink">
-                {me.points % 1 === 0 ? me.points : me.points.toFixed(1)}
-              </span>{" "}
+              <span className="text-2xl font-bold text-ink">{me.points}</span>{" "}
               points · {myRank === 1 ? "1st" : `#${myRank}`} of{" "}
               {leaderboard.length}
               <p className="mt-1 text-xs text-ink-muted">
-                {me.suWins}-{me.suLosses} straight up · {me.atsWins}-
-                {me.atsLosses} against the spread
+                {me.correct}-{me.wrong} on the season
               </p>
             </>
           ) : (

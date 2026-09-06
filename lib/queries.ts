@@ -61,8 +61,6 @@ type GameRow = {
   odds_provider: string | null;
   winner_team_id: number | null;
   margin_bucket: number | null;
-  ats_team_id: number | null;
-  spread_at_pick: string | null;
   is_default: boolean | null;
 };
 
@@ -98,8 +96,6 @@ function toGame(row: GameRow): Game {
     oddsProvider: row.odds_provider,
     predictedWinnerTeamId: row.winner_team_id,
     predictedMarginBucket: row.margin_bucket,
-    atsTeamId: row.ats_team_id,
-    spreadAtPick: toNumber(row.spread_at_pick),
     isDefault: row.is_default ?? false,
     predictedHomeScore: null,
     predictedAwayScore: null,
@@ -107,9 +103,7 @@ function toGame(row: GameRow): Game {
 }
 
 const GAME_SELECT = sql`
-  SELECT g.*,
-         p.winner_team_id, p.margin_bucket, p.ats_team_id,
-         p.spread_at_pick, p.is_default
+  SELECT g.*, p.winner_team_id, p.margin_bucket, p.is_default
   FROM games g
 `;
 
@@ -150,7 +144,6 @@ export async function getSeasonSchedule(
 ): Promise<Game[]> {
   const rows = await sql<GameRow[]>`
     SELECT g.*, NULL::int AS winner_team_id, NULL::smallint AS margin_bucket,
-           NULL::int AS ats_team_id, NULL::numeric AS spread_at_pick,
            FALSE AS is_default
     FROM games g
     WHERE g.season = ${season} AND g.season_type = ${REGULAR_SEASON_TYPE}
@@ -177,18 +170,16 @@ export type PickInput = {
   gameId: number;
   winnerTeamId: number;
   marginBucket: number;
-  /** Omitted when the game has no posted line yet. */
-  atsTeamId?: number | null;
   isDefault?: boolean;
 };
 
 /**
- * Save one pick.
+ * Save one pick: a winner and roughly how big the margin will be.
  *
- * The spread is read from the game row inside the same statement rather than
- * taken from the caller: a client that posted its own number could pick
- * against a line nobody ever offered. Freezing it here is what makes the
- * against-the-spread scoring honest.
+ * The kickoff lock is enforced here rather than only in the UI. The page
+ * disables a locked game as a courtesy, but a form post can arrive at any
+ * time -- from a tab left open since Sunday morning, or by hand -- so the
+ * check that actually matters is this one.
  */
 export async function savePick(
   userId: number,
@@ -211,18 +202,15 @@ export async function savePick(
 
   await sql`
     INSERT INTO predictions (
-      user_id, game_id, winner_team_id, margin_bucket,
-      ats_team_id, spread_at_pick, is_default
+      user_id, game_id, winner_team_id, margin_bucket, is_default
     )
-    SELECT ${userId}, ${input.gameId}, ${input.winnerTeamId},
-           ${input.marginBucket}, ${input.atsTeamId ?? null}, g.spread,
-           ${input.isDefault ?? false}
-    FROM games g WHERE g.id = ${input.gameId}
+    VALUES (
+      ${userId}, ${input.gameId}, ${input.winnerTeamId},
+      ${input.marginBucket}, ${input.isDefault ?? false}
+    )
     ON CONFLICT (user_id, game_id) DO UPDATE SET
       winner_team_id = EXCLUDED.winner_team_id,
       margin_bucket  = EXCLUDED.margin_bucket,
-      ats_team_id    = EXCLUDED.ats_team_id,
-      spread_at_pick = EXCLUDED.spread_at_pick,
       is_default     = EXCLUDED.is_default,
       updated_at     = now()
   `;

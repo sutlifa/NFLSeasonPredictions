@@ -46,17 +46,18 @@ export type Game = {
   /**
    * The HOME team's line: -3.5 means the home side is favoured by 3.5.
    * Null until a book posts one (ESPN publishes lines a few days out).
+   *
+   * Shown as context only -- nothing is picked or scored against it. It is
+   * still worth carrying because it is the market's own read on a game, and
+   * it is what "Fill week" defaults from.
    */
   spread: number | null;
   overUnder: number | null;
   oddsProvider: string | null;
 
-  /** The user's straight-up pick, if any. */
+  /** The user's pick: who wins, and roughly by how much. */
   predictedWinnerTeamId: number | null;
   predictedMarginBucket: number | null;
-  /** The user's against-the-spread pick, and the line it was made against. */
-  atsTeamId: number | null;
-  spreadAtPick: number | null;
   isDefault: boolean;
 
   /**

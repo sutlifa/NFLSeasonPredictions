@@ -46,7 +46,7 @@ export default async function LeaderboardPage({
           {weekFilter
             ? `Week ${weekFilter} only`
             : `${CURRENT_SEASON} season to date`}{" "}
-          · one point for the winner, one for the spread, half for a push
+          · one point for every game whose winner you called
         </p>
       </div>
 
@@ -100,10 +100,8 @@ export default async function LeaderboardPage({
                 <th className="px-3 py-2 font-medium">#</th>
                 <th className="px-2 py-2 font-medium">Player</th>
                 <th className="px-2 py-2 text-right font-medium">Points</th>
-                <th className="px-2 py-2 text-right font-medium">Straight up</th>
-                <th className="px-2 py-2 text-right font-medium">
-                  Against the spread
-                </th>
+                <th className="px-2 py-2 text-right font-medium">Record</th>
+                <th className="px-2 py-2 text-right font-medium">Hit rate</th>
                 <th className="px-3 py-2 text-right font-medium">Games</th>
               </tr>
             </thead>
@@ -125,22 +123,17 @@ export default async function LeaderboardPage({
                     )}
                   </td>
                   <td className="tabular px-2 py-2 text-right font-bold">
-                    {/* Halves come from pushes, so trim a trailing .0 rather
-                        than showing "12.0" next to "12.5". */}
-                    {row.points % 1 === 0 ? row.points : row.points.toFixed(1)}
+                    {row.points}
                   </td>
                   <td className="tabular px-2 py-2 text-right text-ink-soft">
-                    {row.suWins}-{row.suLosses}
-                    <span className="ml-1 text-xs text-ink-muted">
-                      {pct(row.suPct)}
-                    </span>
+                    {row.correct}-{row.wrong}
+                    {/* A tied game is neither called nor missed, so it is
+                        shown as a third figure rather than folded into the
+                        losses. */}
+                    {row.ties > 0 && `-${row.ties}`}
                   </td>
                   <td className="tabular px-2 py-2 text-right text-ink-soft">
-                    {row.atsWins}-{row.atsLosses}
-                    {row.atsPushes > 0 && `-${row.atsPushes}`}
-                    <span className="ml-1 text-xs text-ink-muted">
-                      {pct(row.atsPct)}
-                    </span>
+                    {pct(row.pct)}
                   </td>
                   <td className="tabular px-3 py-2 text-right text-ink-muted">
                     {row.gamesGraded}
@@ -153,9 +146,8 @@ export default async function LeaderboardPage({
       )}
 
       <p className="text-xs text-ink-muted">
-        Spread picks are graded against the line as it stood when you picked,
-        not the closing line — so a line that moves after you pick cannot
-        change what you were scored on.
+        Only the winner is scored. The margin you attach to a pick feeds your
+        predicted standings and the league tiebreakers, not your point total.
       </p>
     </div>
   );

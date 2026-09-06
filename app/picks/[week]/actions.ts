@@ -52,9 +52,6 @@ export async function savePickAction(formData: FormData) {
   const week = Number(formData.get("week"));
   const winnerTeamId = Number(formData.get("winnerTeamId"));
   const marginBucket = Number(formData.get("marginBucket"));
-  const rawAts = formData.get("atsTeamId");
-  const atsTeamId =
-    rawAts === null || rawAts === "" ? null : Number(rawAts);
 
   if (!Number.isInteger(gameId) || !Number.isInteger(winnerTeamId)) {
     throw new Error("Invalid pick");
@@ -62,16 +59,8 @@ export async function savePickAction(formData: FormData) {
   if (!isMarginBucketId(marginBucket)) {
     throw new Error("Pick how big the margin will be.");
   }
-  if (atsTeamId !== null && !Number.isInteger(atsTeamId)) {
-    throw new Error("Invalid spread pick");
-  }
 
-  await savePick(userId, {
-    gameId,
-    winnerTeamId,
-    marginBucket,
-    atsTeamId,
-  });
+  await savePick(userId, { gameId, winnerTeamId, marginBucket });
   await settleWeek(userId, week);
 }
 
@@ -89,14 +78,18 @@ export async function clearWeekAction(formData: FormData) {
 }
 
 /**
- * Fill every unpicked game in the week with the side the market favours,
- * both straight up and against the spread.
+ * Fill every unpicked game in the week with the side the market favours, and
+ * a margin matching the size of that line.
  *
- * The favourite is read from the posted line, not from a rating of our own:
- * the line already is the market's opinion, and inventing a second, worse
- * opinion to default from would be strictly less useful. A game with no line
- * yet is left alone rather than guessed at -- there is nothing to base a
- * default on, and quietly picking the home team would look like a real pick.
+ * The favourite is read from the posted spread, not from a rating of our
+ * own: the line already is the market's opinion, and inventing a second,
+ * worse opinion to default from would be strictly less useful. This is the
+ * one place the spread still drives anything -- it is otherwise shown purely
+ * as context.
+ *
+ * A game with no line yet is left alone rather than guessed at; there is
+ * nothing to base a default on, and quietly picking the home side would look
+ * like a real pick. A pick'em is skipped for the same reason.
  *
  * Adds only. An existing pick is never overwritten, so this cannot undo a
  * decision someone already made.
@@ -123,7 +116,6 @@ export async function fillWeekAction(formData: FormData) {
       gameId: game.id,
       winnerTeamId: favourite,
       marginBucket: bucket,
-      atsTeamId: favourite,
       isDefault: true,
     });
   }

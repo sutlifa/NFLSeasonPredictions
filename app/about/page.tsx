@@ -5,16 +5,22 @@ export default function AboutPage() {
     <div className="mx-auto max-w-2xl space-y-4 text-sm leading-relaxed text-ink-soft">
       <h1 className="text-2xl font-bold text-ink">About</h1>
       <p>
-        A private pool for predicting an NFL season. Pick every game two ways —
-        who wins outright, and who covers the point spread — and the leaderboard
-        scores both as results come in.
+        A private pool for predicting an NFL season. Pick every game — who wins,
+        and roughly by how much — and the leaderboard scores it as results come
+        in.
       </p>
       <h2 className="pt-2 text-lg font-bold text-ink">How scoring works</h2>
       <p>
-        One point for the straight-up winner, one for the spread, and half a
-        point when a spread pick pushes. Spread picks are graded against the
-        line as it stood when you made the pick, not the closing line, so a
-        line that moves afterwards can never change what you were scored on.
+        One point for every game whose winner you call. The margin you attach
+        to a pick is not scored — it exists so your predicted season has point
+        differentials, which the league&rsquo;s tiebreaking procedure needs from
+        &ldquo;net points in common games&rdquo; onward. So it does real work,
+        just not on the leaderboard.
+      </p>
+      <p>
+        Point spreads are shown beside each game as the market&rsquo;s own read,
+        but nothing is picked or graded against them. Picks lock at each
+        game&rsquo;s individual kickoff rather than at a weekly deadline.
       </p>
       <h2 className="pt-2 text-lg font-bold text-ink">Standings and playoffs</h2>
       <p>
@@ -35,12 +41,13 @@ export default function AboutPage() {
       <h2 className="pt-2 text-lg font-bold text-ink">Where the data comes from</h2>
       <p>
         Schedules, scores, logos and point spreads come from ESPN&rsquo;s public
-        endpoints. Spreads are whichever book ESPN surfaces, usually DraftKings.
+        endpoints. Spreads are whichever book ESPN surfaces, usually DraftKings,
+        and are refreshed until kickoff.
       </p>
       <p className="text-ink-muted">
         Not affiliated with or endorsed by the National Football League. Point
-        spreads are shown for entertainment only — this is not a betting site
-        and no money changes hands.
+        spreads are shown for reference only — this is not a betting site, and
+        no money changes hands.
       </p>
     </div>
   );

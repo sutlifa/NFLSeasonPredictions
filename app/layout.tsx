@@ -18,7 +18,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "NFL Season Predictions",
   description:
-    "Pick every game straight up and against the spread, then see your season play out through real NFL standings and the playoff bracket.",
+    "Pick every game — who wins and by how much — then see your season play out through real NFL standings and the playoff bracket.",
 };
 
 const NAV_LINKS = [
@@ -127,7 +127,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           <p className="text-[11px] leading-relaxed">
             Not affiliated with or endorsed by the National Football League.
             Team names and logos are trademarks of their respective owners.
-            Point spreads are shown for entertainment only.
+            Point spreads are shown for reference only.
           </p>
         </footer>
       </body>

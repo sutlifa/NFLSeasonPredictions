@@ -90,8 +90,8 @@ export default async function PicksPage({ params }: PageProps<"/picks/[week]">) 
       {withoutLine > 0 && (
         <p className="rounded border border-line bg-surface-2 px-3 py-2 text-xs text-ink-muted">
           {withoutLine === games.length
-            ? "No point spreads posted for this week yet — you can still pick winners, and the spread buttons open as soon as a line goes up."
-            : `${withoutLine} game${withoutLine === 1 ? " has" : "s have"} no posted spread yet. Those can still be picked straight up.`}
+            ? "No point spreads posted for this week yet. Spreads are shown for reference only, so this does not affect picking — but “Fill week” has nothing to work from until a line goes up."
+            : `${withoutLine} game${withoutLine === 1 ? " has" : "s have"} no posted spread yet, so “Fill week” will skip ${withoutLine === 1 ? "it" : "them"}.`}
         </p>
       )}
 

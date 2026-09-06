@@ -3,8 +3,8 @@
 Pick every game of the NFL season through the Super Bowl. Compete with friends.
 Have a great time.
 
-Every game is picked two ways — straight up, and against the point spread — and
-the leaderboard scores both as results come in. Your picks also build your own
+Each game takes one pick — who wins, and roughly by how much — and the
+leaderboard scores the winner as results come in. Your picks also build your own
 version of the season: division and conference standings resolved with the
 league's real tiebreakers, and a 14-team playoff bracket seeded from them.
 
@@ -12,10 +12,11 @@ Live at <https://nfl-season-predictions.vercel.app/>.
 
 ## What it does
 
-- **Weekly picks.** Pick a winner and roughly how big the margin will be, plus
-  which side covers the spread. Picks lock at kickoff, enforced on the server.
-- **Leaderboard.** One point for the straight-up winner, one for the spread,
-  half for a push. Filterable by week or season to date.
+- **Weekly picks.** Pick a winner and roughly how big the margin will be. Point
+  spreads are shown beside each side as context but are not pickable. Picks
+  lock at each game's kickoff, enforced on the server.
+- **Leaderboard.** One point per game whose winner you called. Filterable by
+  week or season to date.
 - **Standings.** Division and conference tables from your picks, or from the
   real results, with the league's published tiebreaking procedure applied and
   the deciding step named wherever one was actually needed.
@@ -108,12 +109,11 @@ itself between visits.
 ESPN's public endpoints — schedule, kickoff times, live scores, logos, team
 colours and DraftKings point spreads. There is no free official NFL feed, so
 `lib/espn.ts` reads every field defensively and a shape change degrades rather
-than throws. One detail worth knowing: the spread's sign is verified against
-the favourite flags rather than trusted, because a mis-signed line silently
-inverts every against-the-spread pick on that game.
+than throws.
 
-Spreads are frozen into the prediction row at pick time. A pick is graded
-against the number the user actually saw, never the closing line.
+The spread's sign is verified against ESPN's favourite flags rather than
+trusted. Nothing is scored against the line, but "Fill week" defaults from it,
+so a mis-signed line would hand every auto-filled game to the wrong team.
 
 ## Layout
 
@@ -136,4 +136,4 @@ the scoring module pulled the Postgres driver into the browser bundle.
 
 Not affiliated with or endorsed by the National Football League. Team names and
 logos are trademarks of their respective owners. Point spreads are shown for
-entertainment only — nothing here takes a wager.
+reference only — nothing here takes a wager.

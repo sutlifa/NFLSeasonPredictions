@@ -36,8 +36,9 @@ CREATE TABLE IF NOT EXISTS users (
 --
 -- `spread` is the HOME team's line, matching how a sportsbook quotes it:
 -- -3.5 means the home team is favoured by 3.5. Kept in sync from ESPN until
--- kickoff; predictions.spread_at_pick freezes whatever the number was when a
--- pick was made, so later line movement can never rescore a settled pick.
+-- kickoff, then left alone. Nothing is picked or scored against it -- it is
+-- shown beside a game as the market's own read, and is what "Fill week"
+-- defaults from.
 CREATE TABLE IF NOT EXISTS games (
   id               SERIAL PRIMARY KEY,
   espn_id          TEXT UNIQUE,
@@ -70,27 +71,24 @@ CREATE TABLE IF NOT EXISTS games (
 CREATE INDEX IF NOT EXISTS games_week_idx ON games (season, season_type, week);
 CREATE INDEX IF NOT EXISTS games_kickoff_idx ON games (kickoff_at);
 
--- One row per user per game. Two independent calls are recorded:
+-- One row per user per game: who wins, and roughly by how much.
 --
---   winner_team_id + margin_bucket -- the straight-up pick. The bucket
---     (lib/margin.ts) stands in for a predicted score; only the difference
---     between the two teams ever carries meaning, and asking for exact
---     scores across 272 games is far more work than anyone would actually
---     do. Standings, tiebreakers and the bracket all read the derived
---     margin, never a real score claim.
+-- The margin is a bucket (lib/margin.ts) rather than an exact score. Entering
+-- two numbers for 272 games is far more work than anyone will actually do,
+-- and the exact digits never mattered: everything downstream reads only the
+-- MARGIN between the two scores. It is not scored on the leaderboard either
+-- -- it exists so the predicted season has point differentials, which the
+-- league's tiebreaking procedure needs from "net points in common games"
+-- onward.
 --
---   ats_team_id + spread_at_pick -- the pick against the spread. Frozen at
---     pick time on purpose: the line moves all week, and a pick has to be
---     graded against the number the user actually saw, not the closing one.
---     Both are NULL when no line had been published yet.
+-- Point spreads live on `games` and are displayed beside a game as context.
+-- Nothing is picked or graded against them, so no line is copied here.
 CREATE TABLE IF NOT EXISTS predictions (
   id              SERIAL PRIMARY KEY,
   user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   game_id         INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
   winner_team_id  INTEGER NOT NULL REFERENCES teams(id),
   margin_bucket   SMALLINT NOT NULL CHECK (margin_bucket BETWEEN 0 AND 3),
-  ats_team_id     INTEGER REFERENCES teams(id),
-  spread_at_pick  NUMERIC(4, 1),
   -- TRUE when "Fill week" put this pick in rather than the user choosing it.
   -- Without the flag a default and a decision are identical rows, so "clear
   -- my week" cannot tell which picks were actually made.
@@ -99,6 +97,14 @@ CREATE TABLE IF NOT EXISTS predictions (
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (user_id, game_id)
 );
+
+-- Against-the-spread picking was built and then dropped: the pool picks
+-- winners only, with the line shown purely as context. Dropped rather than
+-- left in place unused, so nothing later mistakes a dead column for a
+-- feature. Guarded so this file stays re-runnable against a fresh database
+-- where the columns were never created.
+ALTER TABLE predictions DROP COLUMN IF EXISTS ats_team_id;
+ALTER TABLE predictions DROP COLUMN IF EXISTS spread_at_pick;
 
 CREATE INDEX IF NOT EXISTS predictions_user_idx ON predictions (user_id);
 
