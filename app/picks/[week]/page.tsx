@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { auth } from "@/auth";
 import { GamePicker } from "@/components/GamePicker";
 import { WeekActions } from "@/components/WeekActions";
+import { WeekPager } from "@/components/WeekPager";
 import { getWeekLabel } from "@/lib/format";
 import { CURRENT_SEASON, WEEKS, isValidWeek } from "@/lib/nfl";
 import {
@@ -37,6 +38,8 @@ export default async function PicksPage({ params }: PageProps<"/picks/[week]">) 
 
   return (
     <div className="space-y-5">
+      <WeekPager week={week} />
+
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">
