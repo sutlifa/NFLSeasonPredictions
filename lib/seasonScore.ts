@@ -32,19 +32,30 @@ export const SEASON_POINTS = {
  * actually goes -- and every club you had in the Super Bowl has already paid
  * out at all four earlier rounds on its way there.
  *
- * A perfect postseason is 78: 14 + 16 + 16 + 16 + 16.
+ * A perfect postseason is 156, and a club you had going all the way is worth
+ * 62 on its own (2 + 4 + 8 + 16 + 32).
+ *
+ * These are the whole tuning surface for how much January matters. The
+ * regular season offers 544 points across 272 games at two apiece, so the
+ * ladder was doubled from its original 1/2/4/8/16 -- at that size the entire
+ * postseason came to 78, and calling the champion outright was worth eight
+ * regular-season games, which is less than the gap first and second are
+ * likely to open up over eighteen weeks. At this size the bonus can actually
+ * decide the title. Change the five numbers and everything downstream --
+ * the leaderboard columns, the "perfect bracket is N" copy, the About page
+ * -- follows from them.
  */
 export const POSTSEASON_POINTS = {
   /** Per club of your 14 that made the real field. */
-  field: 1,
+  field: 2,
   /** Per club of yours that reached the divisional round (8 clubs). */
-  divisional: 2,
+  divisional: 4,
   /** Per club of yours that reached a conference championship (4 clubs). */
-  conference: 4,
+  conference: 8,
   /** Per club of yours that reached the Super Bowl (2 clubs). */
-  superBowl: 8,
+  superBowl: 16,
   /** For calling the Super Bowl champion. */
-  champion: 16,
+  champion: 32,
 } as const;
 
 /** The rounds a bonus is paid for, in order, with their per-club value. */

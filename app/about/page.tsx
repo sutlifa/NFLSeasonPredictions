@@ -25,16 +25,18 @@ export default function AboutPage() {
       <h2 className="pt-2 text-lg font-bold text-ink">The postseason bonus</h2>
       <p>
         When the real bracket plays out, your bracket is paid per club that
-        actually reached each round, doubling as it goes: 1 point for each of
-        your 14 that made the field, 2 for each that reached the divisional
-        round, 4 for a conference championship, 8 for the Super Bowl, and 16
+        actually reached each round, doubling as it goes: 2 points for each of
+        your 14 that made the field, 4 for each that reached the divisional
+        round, 8 for a conference championship, 16 for the Super Bowl, and 32
         for calling the champion outright.
       </p>
       <p>
-        Because it compounds, a club you had going all the way is worth 31 on
+        Because it compounds, a club you had going all the way is worth 62 on
         its own — it collects at every round on the way there. A perfect
-        bracket is 78. Rounds that have not been played yet count as nothing
-        rather than as misses.
+        bracket is 156, against 544 for a flawless regular season, so January
+        is worth roughly a fifth of the year and can genuinely decide the
+        title. Rounds that have not been played yet count as nothing rather
+        than as misses.
       </p>
       <h2 className="pt-2 text-lg font-bold text-ink">Standings and playoffs</h2>
       <p>

@@ -18,10 +18,15 @@ Live at <https://nfl-season-predictions.vercel.app/>.
 - **Leaderboard.** One point per game whose winner you called, plus one more
   where the margin bucket landed. Filterable by week or season to date.
 - **Postseason bonus.** Your bracket is paid per club that actually reached
-  each round, doubling as it goes — 1 for the field, 2 divisional, 4
-  conference championship, 8 Super Bowl, 16 for the champion. A club you had
-  going all the way is worth 31; a perfect bracket is 78. The real bracket is
-  derived from ESPN's postseason schedule, not entered by hand.
+  each round, doubling as it goes — 2 for the field, 4 divisional, 8
+  conference championship, 16 Super Bowl, 32 for the champion. A club you had
+  going all the way is worth 62; a perfect bracket is 156, against 544 for a
+  flawless regular season. The real bracket is derived from ESPN's postseason
+  schedule, not entered by hand.
+
+  All five numbers live in `POSTSEASON_POINTS` in `lib/seasonScore.ts` and are
+  the whole tuning surface for how much January matters — everything else,
+  including the on-page copy, is derived from them.
 - **Standings.** Division and conference tables from your picks, or from the
   real results, with the league's published tiebreaking procedure applied and
   the deciding step named wherever one was actually needed.
