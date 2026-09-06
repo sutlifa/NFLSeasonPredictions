@@ -189,7 +189,12 @@ export default async function LeaderboardPage({
                     <th
                       key={round.key}
                       className="px-2 py-2 text-right font-medium"
-                      title={`${round.points} point${round.points === 1 ? "" : "s"} per club`}
+                      // `points` is widened to number on purpose: as a literal
+                      // union it is currently 2|4|8|16, so TypeScript rejects
+                      // a comparison against 1 as impossible -- and the
+                      // pluralisation would then silently break if the ladder
+                      // were ever retuned back down to 1.
+                      title={`${round.points} ${(round.points as number) === 1 ? "point" : "points"} per club`}
                     >
                       {round.label}
                     </th>
