@@ -1,53 +1,48 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="NFL Predictions app icon">
   <!--
-    The header mark (public/logo-mark.svg) redrawn for small sizes. A favicon
-    is read at 16px, where that version falls apart: its 2.5px shield outline
-    lands on a third of a pixel and the football's four laces collapse into
-    one grey smear.
+    The header mark (public/logo-mark.svg) redrawn for a browser tab.
+    Rendered at 16, 20, 32 and 64 against both a light and a dark tab strip
+    and compared against three alternatives before settling here.
+    Two things that version got wrong at 16px:
 
-    Checked at 16, 20, 24, 32, 48 and 96 against both a light and a dark tab
-    strip, which is what drove three of the choices here:
-
-      - The shield is a FLAT lighter navy, not the header's gradient. The
-        gradient's dark end matched the tile almost exactly, so at 16px the
-        bottom half of the shield dissolved into the background and the mark
-        read as a stray highlight rather than a shield.
-      - The shield fills nearly the whole canvas. Comfortable padding at
-        512px is three wasted pixels at 16px, where every one counts.
-      - The band and the ball are oversized relative to the header mark, so
-        the icon still resolves into three distinct zones -- navy, red,
-        white -- when it is barely more than a dozen pixels across.
+      - It was navy on navy. The header mark is a navy shield, which needs a
+        tile behind it so it does not vanish into a dark tab strip -- but a
+        navy shield on a dark tile is one dark blob at 16px, with only a
+        hairline of silver separating them. So the SHIELD is red here and
+        the tile is navy: red is the one colour in the palette that holds
+        its own against both a white strip and a near-black one.
+      - Its detail was sized for the 512px artboard. Everything here is
+        oversized relative to the header mark, because comfortable
+        proportions at 512px are sub-pixel at 16.
 
     Deliberately NOT a copy of the league's shield: this is an unaffiliated
     fan pool, so the mark borrows the palette and the silhouette family
     without imitating a trademark.
   -->
 
-  <!-- Rounded tile, darker than the shield. Without it the navy shield sits
-       on whatever colour the browser's tab strip happens to be and vanishes
-       into a dark theme. -->
-  <rect width="512" height="512" rx="104" ry="104" fill="#050b1c"/>
+  <!-- Navy tile, so the mark reads as a solid object rather than taking on
+       whatever colour the tab strip happens to be. -->
+  <rect width="512" height="512" rx="104" ry="104" fill="#0a1430"/>
 
-  <!-- Shield. Flat fill, and a 24px stroke (~0.75px at 16 square) so the
-       silver edge still registers instead of dropping out. -->
+  <!-- Shield, filling nearly the whole tile. The silver rim is what stops it
+       bleeding into the tile's rounded corners on a dark strip; at 16px it
+       is under a pixel, which is enough to keep the edge crisp without
+       becoming a grey halo. -->
   <path
-    d="M256 38 L454 96 V270 c0 104 -80 174 -198 200 C138 444 58 374 58 270 V96 Z"
-    fill="#1b2f5c"
+    d="M256 32 L462 92 V272 c0 108 -84 182 -206 210 C130 456 50 382 50 272 V92 Z"
+    fill="#d50a0a"
     stroke="#c4cad6"
-    stroke-width="24"
+    stroke-width="14"
     stroke-linejoin="round"
   />
 
-  <!-- Red band, running the full width of the shield so it reads as a stripe
-       rather than a stray shape once the detail goes. -->
-  <path d="M58 206 h396 v104 H58 Z" fill="#d50a0a"/>
-
-  <!-- Football. Only the centre seam and two cross-laces survive; the four of
-       the header mark turn to mush below about 24px. -->
-  <ellipse cx="256" cy="258" rx="122" ry="74" fill="#ffffff"/>
-  <g stroke="#0a1430" stroke-width="22" stroke-linecap="round">
-    <path d="M188 258 H324"/>
-    <path d="M228 230 V286"/>
-    <path d="M284 230 V286"/>
+  <!-- Football. Big enough to still be a distinct shape rather than a speck,
+       with only the centre seam and two cross-laces -- the header mark's
+       four turn to mush below about 24px. -->
+  <ellipse cx="256" cy="248" rx="130" ry="80" fill="#ffffff"/>
+  <g stroke="#0a1430" stroke-width="24" stroke-linecap="round">
+    <path d="M182 248 H330"/>
+    <path d="M224 216 V280"/>
+    <path d="M288 216 V280"/>
   </g>
 </svg>
