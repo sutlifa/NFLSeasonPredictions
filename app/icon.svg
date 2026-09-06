@@ -2,49 +2,52 @@
   <!--
     The header mark (public/logo-mark.svg) redrawn for small sizes. A favicon
     is read at 16px, where that version falls apart: its 2.5px shield outline
-    lands on a third of a pixel, and the football's four laces collapse into
-    one grey smear. So this keeps only what survives -- the shield
-    silhouette, one red band, one white ball -- and thickens every stroke.
+    lands on a third of a pixel and the football's four laces collapse into
+    one grey smear.
 
-    Same four colours as the site, and deliberately the same silhouette, so
-    the tab icon and the header read as the same mark rather than two.
+    Checked at 16, 20, 24, 32, 48 and 96 against both a light and a dark tab
+    strip, which is what drove three of the choices here:
+
+      - The shield is a FLAT lighter navy, not the header's gradient. The
+        gradient's dark end matched the tile almost exactly, so at 16px the
+        bottom half of the shield dissolved into the background and the mark
+        read as a stray highlight rather than a shield.
+      - The shield fills nearly the whole canvas. Comfortable padding at
+        512px is three wasted pixels at 16px, where every one counts.
+      - The band and the ball are oversized relative to the header mark, so
+        the icon still resolves into three distinct zones -- navy, red,
+        white -- when it is barely more than a dozen pixels across.
 
     Deliberately NOT a copy of the league's shield: this is an unaffiliated
     fan pool, so the mark borrows the palette and the silhouette family
     without imitating a trademark.
   -->
-  <defs>
-    <linearGradient id="navy" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#1c305d"/>
-      <stop offset="1" stop-color="#0a1430"/>
-    </linearGradient>
-  </defs>
 
-  <!-- Rounded tile behind the shield: without it the icon sits on whatever
-       colour the browser's tab strip happens to be, and the navy shield
-       disappears into a dark theme. -->
-  <rect width="512" height="512" rx="112" ry="112" fill="#060e22"/>
+  <!-- Rounded tile, darker than the shield. Without it the navy shield sits
+       on whatever colour the browser's tab strip happens to be and vanishes
+       into a dark theme. -->
+  <rect width="512" height="512" rx="104" ry="104" fill="#050b1c"/>
 
-  <!-- Shield. Stroke is 22px here (~0.7px at 16 square) so the silver edge
-       still registers rather than dropping out entirely. -->
+  <!-- Shield. Flat fill, and a 24px stroke (~0.75px at 16 square) so the
+       silver edge still registers instead of dropping out. -->
   <path
-    d="M256 54 L436 110 V266 c0 100 -76 168 -180 192 C152 434 76 366 76 266 V110 Z"
-    fill="url(#navy)"
+    d="M256 38 L454 96 V270 c0 104 -80 174 -198 200 C138 444 58 374 58 270 V96 Z"
+    fill="#1b2f5c"
     stroke="#c4cad6"
-    stroke-width="22"
+    stroke-width="24"
     stroke-linejoin="round"
   />
 
-  <!-- Red band, full width of the shield so it reads as a stripe and not a
-       stray shape once the detail goes. -->
-  <path d="M76 218 h360 v76 H76 Z" fill="#d50a0a"/>
+  <!-- Red band, running the full width of the shield so it reads as a stripe
+       rather than a stray shape once the detail goes. -->
+  <path d="M58 206 h396 v104 H58 Z" fill="#d50a0a"/>
 
-  <!-- Football. Only the centre seam and two cross-laces are kept; the four
-       of the header mark turn to mush below about 24px. -->
-  <ellipse cx="256" cy="256" rx="104" ry="62" fill="#ffffff"/>
-  <g stroke="#0a1430" stroke-width="18" stroke-linecap="round">
-    <path d="M198 256 H314"/>
-    <path d="M232 232 V280"/>
-    <path d="M280 232 V280"/>
+  <!-- Football. Only the centre seam and two cross-laces survive; the four of
+       the header mark turn to mush below about 24px. -->
+  <ellipse cx="256" cy="258" rx="122" ry="74" fill="#ffffff"/>
+  <g stroke="#0a1430" stroke-width="22" stroke-linecap="round">
+    <path d="M188 258 H324"/>
+    <path d="M228 230 V286"/>
+    <path d="M284 230 V286"/>
   </g>
 </svg>
