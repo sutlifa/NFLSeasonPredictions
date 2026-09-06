@@ -1,43 +1,45 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="NFL Predictions app icon">
   <!--
-    The header mark (public/logo-mark.svg) redrawn for a browser tab, and
-    compared against three alternatives at 16, 20, 32 and 64 on both a light
-    and a dark tab strip before settling here.
+    The same mark as the site header (public/logo-mark.svg): navy shield,
+    silver rim, red band, white football. Kept deliberately identical so the
+    tab icon and the header read as one mark.
 
-    Why the shield is RED when the header's is navy: the header mark needs a
-    tile behind it or it vanishes into a dark tab strip, but a navy shield on
-    a dark tile is one blob at 16px, with only a hairline of silver between
-    them. Red is the one colour in the palette that holds up against both a
-    white strip and a near black one.
+    Only the proportions differ, because this is read at 16px. The shield
+    fills the whole canvas rather than sitting in padding, the rim and laces
+    are thickened so they still land on a pixel, and the football and band
+    are enlarged. Verified by rasterising to a real 16px canvas and
+    magnifying the result, not by eyeballing it at 512.
 
-    Everything is oversized relative to the header mark, because comfortable
-    proportions on a 512px artboard are sub pixel at 16.
+    No tile behind it, unlike an earlier attempt. The mark already carries
+    its own contrast: the silver rim and the red band hold it up against a
+    dark tab strip, and the navy shield does the same against a light one,
+    so a tile only made it heavier.
 
-    NOTE FOR EDITORS: no double hyphen anywhere inside these comments. XML
+    NOTE FOR EDITORS: never put a double hyphen inside these comments. XML
     forbids it, and an SVG that fails to parse does not fall back to
-    something plainer, it fails to render at all. Chrome quietly shows its
-    default globe instead, which is exactly how this file shipped broken
-    once already.
+    something plainer, it fails to render entirely. Chrome then silently
+    shows its default globe, which is exactly how this file once shipped
+    broken. scripts/check-svg.mjs guards against it at build time.
 
     Deliberately NOT a copy of the league's shield: this is an unaffiliated
     fan pool, so the mark borrows the palette and the silhouette family
     without imitating a trademark.
   -->
 
-  <rect width="512" height="512" rx="104" ry="104" fill="#0a1430"/>
-
   <path
-    d="M256 32 L462 92 V272 c0 108 -84 182 -206 210 C130 456 50 382 50 272 V92 Z"
-    fill="#d50a0a"
+    d="M256 34 L458 94 V270 c0 106 -82 178 -202 206 C134 448 54 376 54 270 V94 Z"
+    fill="#16294f"
     stroke="#c4cad6"
-    stroke-width="14"
+    stroke-width="26"
     stroke-linejoin="round"
   />
 
-  <ellipse cx="256" cy="248" rx="130" ry="80" fill="#ffffff"/>
+  <path d="M54 206 h404 v104 H54 Z" fill="#d50a0a"/>
+
+  <ellipse cx="256" cy="252" rx="128" ry="78" fill="#ffffff"/>
   <g stroke="#0a1430" stroke-width="24" stroke-linecap="round">
-    <path d="M182 248 H330"/>
-    <path d="M224 216 V280"/>
-    <path d="M288 216 V280"/>
+    <path d="M146 252 H366"/>
+    <path d="M222 222 V282"/>
+    <path d="M290 222 V282"/>
   </g>
 </svg>
