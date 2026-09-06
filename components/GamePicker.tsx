@@ -131,6 +131,18 @@ export function GamePicker({
     submit({ winner: pick.winner, bucket: id });
   }
 
+  /**
+   * Each side is labelled rather than relying on left-to-right order. Away
+   * first, home second is the NFL convention, but a two-button row gives no
+   * hint of that on its own -- and on a neutral-site game "home" is a
+   * scheduling fiction anyway, so those say "designated home" instead of
+   * implying the club is actually hosting.
+   */
+  const sideLabel = (isHome: boolean) => {
+    if (!isHome) return "Away";
+    return game.isNeutralSite ? "Home (neutral)" : "Home";
+  };
+
   const sideButton = (team: Team, isHome: boolean) => {
     const selected = pick.winner === team.id;
     const won =
@@ -151,6 +163,9 @@ export function GamePicker({
       >
         <TeamLogo logoUrl={team.logoUrl} name={team.name} size={26} />
         <span className="min-w-0 flex-1">
+          <span className="block text-[10px] uppercase tracking-wide text-ink-muted">
+            {sideLabel(isHome)}
+          </span>
           <span className="block truncate text-sm font-semibold">
             {team.location}
           </span>
@@ -185,8 +200,18 @@ export function GamePicker({
     <li className="rounded-lg border border-line bg-surface p-3">
       <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-muted">
         <span>{formatKickoff(game.kickoffAt, game.kickoffTbd)}</span>
+        {/* On a neutral-site game the home club's city is misleading -- these
+            are the international fixtures, so say where it is actually
+            played. */}
         {game.isNeutralSite && (
-          <span className="text-neutral-site">Neutral site</span>
+          <span
+            className="text-neutral-site"
+            title={game.venueName ?? undefined}
+          >
+            {game.venueLocation
+              ? `Neutral site · ${game.venueLocation}`
+              : "Neutral site"}
+          </span>
         )}
         {game.status === "in_progress" && (
           <span className="font-semibold text-accent-strong">In progress</span>
@@ -200,8 +225,14 @@ export function GamePicker({
         )}
       </div>
 
-      <div className="flex flex-col gap-2 sm:flex-row">
+      <div className="flex flex-col items-stretch gap-1 sm:flex-row sm:items-center sm:gap-2">
         {sideButton(away, false)}
+        <span
+          aria-hidden
+          className="shrink-0 text-center text-xs font-semibold text-ink-muted"
+        >
+          {game.isNeutralSite ? "vs" : "@"}
+        </span>
         {sideButton(home, true)}
       </div>
 

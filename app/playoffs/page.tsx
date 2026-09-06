@@ -3,7 +3,7 @@ import { auth } from "@/auth";
 import { Bracket } from "@/components/Bracket";
 import { TeamLogo } from "@/components/TeamLogo";
 import { CONFERENCES, CURRENT_SEASON, TOTAL_WEEKS } from "@/lib/nfl";
-import { buildBracket, seedPlayoffs } from "@/lib/playoffs";
+import { buildBracket, seedLookup, seedPlayoffs } from "@/lib/playoffs";
 import {
   getBracketPicks,
   getSeasonGames,
@@ -38,6 +38,14 @@ export default async function PlayoffsPage() {
   const teamById = new Map(teams.map((t) => [t.id, t]));
   const rowById = new Map(rows.map((r) => [r.teamId, r]));
   const weeksLeft = TOTAL_WEEKS - submitted.size;
+
+  // The banner's subtitle: the champion's seed and its predicted record.
+  const championId = bracket.championTeamId;
+  const championSeed = championId
+    ? (seedLookup(seeds).get(championId)?.seed ?? null)
+    : null;
+  const championRow = championId ? rowById.get(championId) : undefined;
+  const championRecord = championRow ? formatRecord(championRow.overall) : null;
 
   return (
     <div className="space-y-5">
@@ -114,6 +122,9 @@ export default async function PlayoffsPage() {
         matchups={bracket.matchups}
         teamById={teamById}
         championTeamId={bracket.championTeamId}
+        championSeed={championSeed}
+        championRecord={championRecord}
+        season={CURRENT_SEASON}
         pickAction={pickBracketAction}
       />
 

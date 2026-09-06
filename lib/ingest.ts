@@ -106,14 +106,15 @@ export async function syncWeek(
         espn_id, season, season_type, week, home_team_id, away_team_id,
         is_neutral_site, kickoff_at, kickoff_tbd, status,
         home_score, away_score, spread, over_under, odds_provider,
-        odds_updated_at
+        odds_updated_at, venue_name, venue_location
       ) VALUES (
         ${game.espnId}, ${season}, ${seasonType}, ${game.week},
         ${homeId}, ${awayId}, ${game.isNeutralSite},
         ${game.kickoffAt}, ${game.kickoffTbd}, ${game.status},
         ${game.homeScore}, ${game.awayScore},
         ${game.spread}, ${game.overUnder}, ${game.oddsProvider},
-        ${hasOdds ? new Date() : null}
+        ${hasOdds ? new Date() : null},
+        ${game.venueName}, ${game.venueLocation}
       )
       ON CONFLICT (espn_id) DO UPDATE SET
         week            = EXCLUDED.week,
@@ -123,6 +124,8 @@ export async function syncWeek(
         kickoff_at      = EXCLUDED.kickoff_at,
         kickoff_tbd     = EXCLUDED.kickoff_tbd,
         status          = EXCLUDED.status,
+        venue_name      = COALESCE(EXCLUDED.venue_name, games.venue_name),
+        venue_location  = COALESCE(EXCLUDED.venue_location, games.venue_location),
         home_score      = COALESCE(EXCLUDED.home_score, games.home_score),
         away_score      = COALESCE(EXCLUDED.away_score, games.away_score),
         -- Only accept a new line while the game is still ahead of us.

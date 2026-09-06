@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { auth } from "@/auth";
 import { CURRENT_SEASON, WEEKS, isValidWeek } from "@/lib/nfl";
-import { getCurrentWeek } from "@/lib/queries";
+import { TeamLogo } from "@/components/TeamLogo";
+import { getCurrentWeek, getTeams } from "@/lib/queries";
 import { getGradedWeeks, getLeaderboard } from "@/lib/scoring";
 import { BONUS_ROUNDS, POSTSEASON_POINTS, maxPostseasonPoints } from "@/lib/seasonScore";
 
@@ -25,13 +26,18 @@ export default async function LeaderboardPage({
       ? Number(rawWeek)
       : null;
 
-  const [rows, gradedWeeks, currentWeek] = await Promise.all([
+  const [rows, gradedWeeks, currentWeek, teams] = await Promise.all([
     getLeaderboard(CURRENT_SEASON, weekFilter ?? undefined),
     getGradedWeeks(CURRENT_SEASON),
     getCurrentWeek(),
+    getTeams(),
   ]);
+  const teamById = new Map(teams.map((t) => [t.id, t]));
 
   const anyGraded = rows.some((r) => r.gamesGraded > 0);
+  const anyBracket = rows.some(
+    (r) => r.superBowl.afcTeamId || r.superBowl.nfcTeamId,
+  );
   const postseasonLive = rows.some((r) => r.postseason?.scored);
   const playedWeeks = WEEKS.filter((w) => gradedWeeks.has(w));
 
@@ -78,27 +84,27 @@ export default async function LeaderboardPage({
         </nav>
       )}
 
-      {!anyGraded ? (
-        <div className="rounded border border-line bg-surface p-8 text-center">
-          <p className="text-ink-soft">Nothing graded yet.</p>
-          <p className="mt-1 text-sm text-ink-muted">
-            Scores appear here as games finish.{" "}
-            <Link
-              href={`/picks/${currentWeek}`}
-              className="text-accent-strong underline"
-            >
-              Make your week {currentWeek} picks
-            </Link>
-            .
-          </p>
-        </div>
-      ) : (
-        <div className="overflow-x-auto rounded-lg border border-line bg-surface">
+      {!anyGraded && (
+        <p className="rounded border border-line bg-surface-2 px-3 py-2 text-xs text-ink-muted">
+          No games have finished yet, so nothing is scored — the board is
+          ordered by how much of the slate each person has filled in.{" "}
+          <Link
+            href={`/picks/${currentWeek}`}
+            className="text-accent-strong underline"
+          >
+            Make your week {currentWeek} picks
+          </Link>
+          .
+        </p>
+      )}
+
+      <div className="overflow-x-auto rounded-lg border border-line bg-surface">
           <table className="w-full min-w-[640px] text-sm">
             <thead>
               <tr className="border-b border-line text-left text-[11px] uppercase tracking-wide text-ink-muted">
                 <th className="px-3 py-2 font-medium">#</th>
                 <th className="px-2 py-2 font-medium">Player</th>
+                <th className="px-2 py-2 text-right font-medium">Picks</th>
                 <th className="px-2 py-2 text-right font-medium">Total</th>
                 <th className="px-2 py-2 text-right font-medium">Winners</th>
                 <th className="px-2 py-2 text-right font-medium">Margins</th>
@@ -126,6 +132,18 @@ export default async function LeaderboardPage({
                         you
                       </span>
                     )}
+                  </td>
+                  <td className="tabular px-2 py-2 text-right">
+                    <span
+                      className={
+                        row.picksMade >= row.picksAvailable
+                          ? "font-semibold text-win"
+                          : "text-ink-soft"
+                      }
+                    >
+                      {row.picksMade}
+                    </span>
+                    <span className="text-ink-muted">/{row.picksAvailable}</span>
                   </td>
                   <td className="tabular px-2 py-2 text-right text-base font-bold">
                     {row.points}
@@ -170,9 +188,80 @@ export default async function LeaderboardPage({
                   </td>
                 </tr>
               ))}
-            </tbody>
-          </table>
-        </div>
+          </tbody>
+        </table>
+      </div>
+
+      {anyBracket && (
+        <section className="overflow-hidden rounded-lg border border-line bg-surface">
+          <h2 className="border-b border-line bg-surface-2 px-3 py-2 text-sm font-bold">
+            Everyone&rsquo;s Super Bowl
+          </h2>
+          <ul>
+            {rows.map((row) => {
+              const afc = row.superBowl.afcTeamId
+                ? teamById.get(row.superBowl.afcTeamId)
+                : undefined;
+              const nfc = row.superBowl.nfcTeamId
+                ? teamById.get(row.superBowl.nfcTeamId)
+                : undefined;
+              const champ = row.superBowl.championTeamId;
+              const side = (
+                team: typeof afc,
+                label: string,
+              ) => (
+                <span className="flex min-w-0 flex-1 items-center gap-1.5">
+                  {team ? (
+                    <>
+                      <TeamLogo logoUrl={team.logoUrl} name={team.name} size={20} />
+                      <span
+                        className={`min-w-0 truncate ${
+                          champ === team.id
+                            ? "font-bold text-ink"
+                            : "text-ink-soft"
+                        }`}
+                      >
+                        {team.location}
+                      </span>
+                      {champ === team.id && (
+                        <span aria-label="their champion" title="Their champion">
+                          🏆
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <span className="text-ink-muted">{label} — not picked</span>
+                  )}
+                </span>
+              );
+              return (
+                <li
+                  key={row.userId}
+                  className={`flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-line/60 px-3 py-2 text-sm first:border-t-0 ${
+                    row.userId === me ? "bg-accent/10" : ""
+                  }`}
+                >
+                  <span className="w-32 shrink-0 truncate font-medium">
+                    {row.name}
+                  </span>
+                  <span className="flex min-w-0 flex-1 items-center gap-2">
+                    {side(afc, "AFC")}
+                    <span className="shrink-0 text-xs text-ink-muted">vs</span>
+                    {side(nfc, "NFC")}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+          <p className="border-t border-line/60 px-3 py-1.5 text-[11px] text-ink-muted">
+            Taken from each person&rsquo;s own bracket. A side shows as
+            &ldquo;not picked&rdquo; until that conference is played out on the{" "}
+            <Link href="/playoffs" className="underline hover:text-ink-soft">
+              Playoffs
+            </Link>{" "}
+            page.
+          </p>
+        </section>
       )}
 
       {postseasonLive && (

@@ -121,6 +121,12 @@ body {
   }
 }
 
+@keyframes champion-bob {
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
 .champion-banner {
   animation: champion-rise 500ms ease-out both;
 }
@@ -136,10 +142,15 @@ body {
   animation: champion-spin 60s linear infinite;
 }
 
+.champion-trophy {
+  animation: champion-bob 3.5s ease-in-out 900ms infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .champion-banner,
   .champion-logo,
-  .champion-rays {
+  .champion-rays,
+  .champion-trophy {
     animation: none;
   }
 }

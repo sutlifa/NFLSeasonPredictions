@@ -51,6 +51,8 @@ type GameRow = {
   home_team_id: number;
   away_team_id: number;
   is_neutral_site: boolean;
+  venue_name: string | null;
+  venue_location: string | null;
   kickoff_at: Date | null;
   kickoff_tbd: boolean;
   status: GameStatus;
@@ -86,6 +88,8 @@ function toGame(row: GameRow): Game {
     homeTeamId: row.home_team_id,
     awayTeamId: row.away_team_id,
     isNeutralSite: row.is_neutral_site,
+    venueName: row.venue_name,
+    venueLocation: row.venue_location,
     kickoffAt: row.kickoff_at ? row.kickoff_at.toISOString() : null,
     kickoffTbd: row.kickoff_tbd,
     status: row.status,
@@ -370,4 +374,103 @@ export async function getCurrentWeek(
       AND status = 'scheduled'
   `;
   return rows[0]?.week ?? TOTAL_WEEKS;
+}
+
+/** How many regular-season games exist to be picked this season. */
+export async function getPickableGameCount(
+  season: number = CURRENT_SEASON,
+): Promise<number> {
+  const rows = await sql<{ n: number }[]>`
+    SELECT count(*)::int AS n FROM games
+    WHERE season = ${season} AND season_type = ${REGULAR_SEASON_TYPE}
+  `;
+  return rows[0]?.n ?? 0;
+}
+
+/** Regular-season picks made, per user. */
+export async function getPickCounts(
+  season: number = CURRENT_SEASON,
+): Promise<Map<number, number>> {
+  const rows = await sql<{ user_id: number; n: number }[]>`
+    SELECT p.user_id, count(*)::int AS n
+    FROM predictions p
+    JOIN games g ON g.id = p.game_id
+    WHERE g.season = ${season} AND g.season_type = ${REGULAR_SEASON_TYPE}
+    GROUP BY p.user_id
+  `;
+  return new Map(rows.map((r) => [r.user_id, r.n]));
+}
+
+/**
+ * Every user's season, assembled from ONE copy of the schedule and ONE pass
+ * over the predictions table.
+ *
+ * The obvious version -- getSeasonGames in a loop -- costs a query per user
+ * and re-reads all 272 shared game rows every time. The leaderboard needs a
+ * full season per user to derive their bracket, so that shape turns a page
+ * render into N round trips against the same rows.
+ */
+export async function getSeasonGamesByUser(
+  season: number = CURRENT_SEASON,
+): Promise<Map<number, Game[]>> {
+  const [schedule, picks] = await Promise.all([
+    getSeasonSchedule(season),
+    sql<
+      {
+        user_id: number;
+        game_id: number;
+        winner_team_id: number;
+        margin_bucket: number;
+        is_default: boolean;
+      }[]
+    >`
+      SELECT p.user_id, p.game_id, p.winner_team_id, p.margin_bucket, p.is_default
+      FROM predictions p
+      JOIN games g ON g.id = p.game_id
+      WHERE g.season = ${season} AND g.season_type = ${REGULAR_SEASON_TYPE}
+    `,
+  ]);
+
+  const byUser = new Map<number, Map<number, (typeof picks)[number]>>();
+  for (const pick of picks) {
+    const forUser = byUser.get(pick.user_id) ?? new Map();
+    forUser.set(pick.game_id, pick);
+    byUser.set(pick.user_id, forUser);
+  }
+
+  const out = new Map<number, Game[]>();
+  for (const [userId, forUser] of byUser) {
+    out.set(
+      userId,
+      schedule.map((game) => {
+        const pick = forUser.get(game.id);
+        if (!pick) return game;
+        return applyPredictedScores({
+          ...game,
+          predictedWinnerTeamId: pick.winner_team_id,
+          predictedMarginBucket: pick.margin_bucket,
+          isDefault: pick.is_default,
+        });
+      }),
+    );
+  }
+  return out;
+}
+
+/** Bracket picks for every user, keyed by user id. */
+export async function getBracketPicksByUser(
+  season: number = CURRENT_SEASON,
+): Promise<Map<number, Map<BracketSlot, number>>> {
+  const rows = await sql<
+    { user_id: number; slot: string; team_id: number }[]
+  >`
+    SELECT user_id, slot, team_id FROM bracket_picks WHERE season = ${season}
+  `;
+  const out = new Map<number, Map<BracketSlot, number>>();
+  for (const row of rows) {
+    const forUser = out.get(row.user_id) ?? new Map<BracketSlot, number>();
+    forUser.set(row.slot as BracketSlot, row.team_id);
+    out.set(row.user_id, forUser);
+  }
+  return out;
 }

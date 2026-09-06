@@ -1,13 +1,18 @@
 import { sql } from "./db";
 import { POINTS_CORRECT, POINTS_MARGIN, gradeMargin, gradeStraightUp } from "./grade";
 import { CURRENT_SEASON, REGULAR_SEASON_TYPE } from "./nfl";
-import type { BracketSlot } from "./playoffs";
 import {
   derivePostseasonPrediction,
   getPostseasonTruth,
   truthIsEmpty,
 } from "./postseason";
-import { getSeasonGames, getTeams } from "./queries";
+import {
+  getBracketPicksByUser,
+  getPickCounts,
+  getPickableGameCount,
+  getSeasonGamesByUser,
+  getTeams,
+} from "./queries";
 import { scorePostseason, type PostseasonScore } from "./seasonScore";
 
 /**
@@ -27,10 +32,22 @@ export {
   type PickGrade,
 } from "./grade";
 
+/** One person's Super Bowl, as their own bracket has it. */
+export type SuperBowlPick = {
+  /** Their conference champions -- null until that side of the bracket is filled in. */
+  afcTeamId: number | null;
+  nfcTeamId: number | null;
+  championTeamId: number | null;
+};
+
 export type LeaderboardRow = {
   userId: number;
   name: string;
   image: string | null;
+  /** Regular-season picks made, and how many there are to make. */
+  picksMade: number;
+  picksAvailable: number;
+  superBowl: SuperBowlPick;
   gamesGraded: number;
   correct: number;
   wrong: number;
@@ -100,6 +117,9 @@ export async function getLeaderboard(
         userId: user.id,
         name: user.name ?? user.email,
         image: user.image,
+        picksMade: 0,
+        picksAvailable: 0,
+        superBowl: { afcTeamId: null, nfcTeamId: null, championTeamId: null },
         gamesGraded: 0,
         correct: 0,
         wrong: 0,
@@ -146,21 +166,63 @@ export async function getLeaderboard(
     }
   }
 
-  // The postseason bonus only exists once some of the real bracket does, so
-  // before January this whole branch is skipped -- it would otherwise mean
-  // recomputing every user's standings, tiebreakers and seeds on every
-  // leaderboard render to award a guaranteed zero.
+  // How much of the slate each person has actually filled in. Shown all
+  // season, including before anything has been graded -- in September the
+  // only meaningful thing to compare is who has done their picks.
+  const [pickCounts, picksAvailable] = await Promise.all([
+    getPickCounts(season),
+    getPickableGameCount(season),
+  ]);
+  for (const entry of byUser.values()) {
+    entry.picksMade = pickCounts.get(entry.userId) ?? 0;
+    entry.picksAvailable = picksAvailable;
+  }
+
+  // Each person's Super Bowl is derived rather than read straight out of
+  // bracket_picks. A stored pick can be stale -- editing a regular-season
+  // game moves the standings, which reseeds the field, which can leave a
+  // saved conference-championship pick naming a club that is no longer in
+  // that game. buildBracket drops a winner that is not actually in its
+  // matchup, so going through it shows what the bracket really says now
+  // instead of what it said when the pick was made.
   const truth = week != null ? null : await getPostseasonTruth(season);
-  if (truth && !truthIsEmpty(truth)) {
-    const teams = await getTeams();
+  const scoreBonus = truth !== null && !truthIsEmpty(truth);
+
+  if (week == null) {
+    const [teams, gamesByUser, bracketByUser] = await Promise.all([
+      getTeams(),
+      getSeasonGamesByUser(season),
+      getBracketPicksByUser(season),
+    ]);
+    const teamById = new Map(teams.map((t) => [t.id, t]));
+
     for (const entry of byUser.values()) {
-      const [games, picks] = await Promise.all([
-        getSeasonGames(entry.userId, season),
-        getBracketPicksFor(entry.userId, season),
-      ]);
-      const prediction = derivePostseasonPrediction(teams, games, picks);
-      entry.postseason = scorePostseason(prediction, truth);
-      entry.postseasonPoints = entry.postseason.total;
+      const games = gamesByUser.get(entry.userId);
+      if (!games) continue;
+      const prediction = derivePostseasonPrediction(
+        teams,
+        games,
+        bracketByUser.get(entry.userId) ?? new Map(),
+      );
+
+      // superBowl lists only the sides that have actually been decided, so
+      // it cannot be indexed positionally -- a bracket with just the AFC
+      // filled in has one entry, not two. Look each side up by conference.
+      const sides: Record<string, number | null> = { AFC: null, NFC: null };
+      for (const teamId of prediction.superBowl) {
+        const conf = teamById.get(teamId)?.conference;
+        if (conf) sides[conf] = teamId;
+      }
+      entry.superBowl = {
+        afcTeamId: sides.AFC,
+        nfcTeamId: sides.NFC,
+        championTeamId: prediction.championTeamId,
+      };
+
+      if (scoreBonus && truth) {
+        entry.postseason = scorePostseason(prediction, truth);
+        entry.postseasonPoints = entry.postseason.total;
+      }
     }
   }
 
@@ -174,24 +236,25 @@ export async function getLeaderboard(
     entry.marginPct = entry.correct === 0 ? 0 : entry.margins / entry.correct;
   }
 
-  return [...byUser.values()].sort(
-    (a, b) =>
+  // Anyone with a real result to their name ranks above anyone without.
+  // Before the season starts nobody has been graded, so the board would
+  // otherwise be an alphabetical list of zeroes -- ordering those by how much
+  // of the slate they have filled in makes the preseason page a meaningful
+  // "who has done their picks" list instead.
+  return [...byUser.values()].sort((a, b) => {
+    const aScored = a.gamesGraded > 0;
+    const bScored = b.gamesGraded > 0;
+    if (aScored !== bScored) return aScored ? -1 : 1;
+    if (!aScored) {
+      return b.picksMade - a.picksMade || a.name.localeCompare(b.name);
+    }
+    return (
       b.points - a.points ||
       b.pct - a.pct ||
       b.marginPct - a.marginPct ||
-      a.name.localeCompare(b.name),
-  );
-}
-
-async function getBracketPicksFor(
-  userId: number,
-  season: number,
-): Promise<Map<BracketSlot, number>> {
-  const rows = await sql<{ slot: string; team_id: number }[]>`
-    SELECT slot, team_id FROM bracket_picks
-    WHERE user_id = ${userId} AND season = ${season}
-  `;
-  return new Map(rows.map((r) => [r.slot as BracketSlot, r.team_id]));
+      a.name.localeCompare(b.name)
+    );
+  });
 }
 
 /** Which weeks have graded games, for the leaderboard's week filter. */

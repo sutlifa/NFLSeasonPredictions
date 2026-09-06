@@ -1,6 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
+import { ChampionBanner } from "@/components/ChampionBanner";
 import { TeamLogo } from "@/components/TeamLogo";
 import { ROUND_LABELS } from "@/lib/format";
 import type { BracketSlot, Matchup, Round } from "@/lib/playoffs";
@@ -10,6 +11,10 @@ type Props = {
   matchups: Matchup[];
   teamById: Map<number, Team>;
   championTeamId: number | null;
+  /** Seed and record for the champion's banner line. */
+  championSeed: number | null;
+  championRecord: string | null;
+  season: number;
   pickAction: (formData: FormData) => Promise<void>;
 };
 
@@ -103,6 +108,9 @@ export function Bracket({
   matchups,
   teamById,
   championTeamId,
+  championSeed,
+  championRecord,
+  season,
   pickAction,
 }: Props) {
   const [pending, startTransition] = useTransition();
@@ -126,30 +134,12 @@ export function Bracket({
   return (
     <div className="space-y-6">
       {champion && (
-        <div className="champion-banner relative overflow-hidden rounded-xl border border-accent/50 bg-surface p-6 text-center">
-          <div
-            aria-hidden
-            className="champion-rays pointer-events-none absolute inset-x-0 top-0 h-[200%] opacity-25"
-            style={{
-              background:
-                "conic-gradient(from 0deg at 50% 0%, rgba(213,10,10,.7) 0deg, transparent 22deg, transparent 45deg, rgba(196,202,214,.5) 60deg, transparent 82deg, transparent 120deg, rgba(213,10,10,.7) 150deg, transparent 175deg, transparent 220deg, rgba(196,202,214,.5) 250deg, transparent 275deg, transparent 330deg, rgba(213,10,10,.7) 360deg)",
-            }}
-          />
-          <div className="relative">
-            <p className="text-xs uppercase tracking-[0.2em] text-ink-muted">
-              Your Super Bowl champion
-            </p>
-            <div className="champion-logo mt-3 flex flex-col items-center gap-2">
-              <TeamLogo
-                logoUrl={champion.logoUrl}
-                name={champion.name}
-                size={72}
-                eager
-              />
-              <p className="text-2xl font-bold text-ink">{champion.name}</p>
-            </div>
-          </div>
-        </div>
+        <ChampionBanner
+          team={champion}
+          seed={championSeed}
+          record={championRecord}
+          season={season}
+        />
       )}
 
       <div className="grid gap-5 lg:grid-cols-2">

@@ -160,6 +160,10 @@ export type EspnGame = {
   status: GameStatus;
   homeScore: number | null;
   awayScore: number | null;
+  /** Stadium name, e.g. "Tottenham Hotspur Stadium". */
+  venueName: string | null;
+  /** Human-readable place, e.g. "London, England" or "Green Bay, WI". */
+  venueLocation: string | null;
   /** HOME line: negative means the home side is favoured. */
   spread: number | null;
   overUnder: number | null;
@@ -177,6 +181,10 @@ type ScoreboardResponse = {
     competitions?: {
       neutralSite?: boolean;
       timeValid?: boolean;
+      venue?: {
+        fullName?: string;
+        address?: { city?: string; state?: string; country?: string };
+      };
       competitors?: {
         homeAway?: string;
         score?: string;
@@ -198,6 +206,20 @@ type ScoreboardResponse = {
  * abandoned or postponed game as still scheduled -- it either gets replayed
  * or it does not, and until then it must not grade anybody's pick.
  */
+/**
+ * "London, England" or "Green Bay, WI". ESPN gives `country` on overseas
+ * venues and `state` on domestic ones, never both -- country wins where both
+ * somehow appear, since "London, England" is what anyone would say.
+ */
+function formatVenueLocation(
+  address: { city?: string; state?: string; country?: string } | undefined,
+): string | null {
+  const city = address?.city?.trim();
+  if (!city) return null;
+  const region = address?.country?.trim() || address?.state?.trim();
+  return region ? `${city}, ${region}` : city;
+}
+
 function toStatus(state: string | undefined, completed: boolean | undefined): GameStatus {
   if (completed) return "final";
   if (state === "in") return "in_progress";
@@ -303,6 +325,8 @@ export async function fetchWeek(
       status: toStatus(event.status?.type?.state, event.status?.type?.completed),
       homeScore: parseScore(home?.score),
       awayScore: parseScore(away?.score),
+      venueName: competition?.venue?.fullName ?? null,
+      venueLocation: formatVenueLocation(competition?.venue?.address),
       spread: odds.spread,
       overUnder: odds.overUnder,
       oddsProvider: odds.provider,

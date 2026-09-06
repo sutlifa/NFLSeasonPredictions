@@ -38,6 +38,9 @@ export type Game = {
   homeTeamId: number;
   awayTeamId: number;
   isNeutralSite: boolean;
+  /** Where it is played. Shown for neutral-site games, where the home club's city would mislead. */
+  venueName: string | null;
+  venueLocation: string | null;
   kickoffAt: string | null;
   kickoffTbd: boolean;
   status: GameStatus;

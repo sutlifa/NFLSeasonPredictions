@@ -98,6 +98,13 @@ CREATE TABLE IF NOT EXISTS predictions (
   UNIQUE (user_id, game_id)
 );
 
+-- Where the game is played. Only really needed for the neutral-site games --
+-- the nine international fixtures and the Super Bowl -- where "at Jacksonville"
+-- would be actively wrong, but stored for every game since ESPN returns it
+-- anyway and a home stadium name is useful on its own.
+ALTER TABLE games ADD COLUMN IF NOT EXISTS venue_name TEXT;
+ALTER TABLE games ADD COLUMN IF NOT EXISTS venue_location TEXT;
+
 -- Against-the-spread picking was built and then dropped: the pool picks
 -- winners only, with the line shown purely as context. Dropped rather than
 -- left in place unused, so nothing later mistakes a dead column for a
