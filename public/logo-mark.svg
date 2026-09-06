@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Pick'em shield">
+  <!--
+    A generic pigskin-on-a-shield mark in the app's four colours. Deliberately
+    NOT a copy of the league's shield: this is an unaffiliated fan pool, so
+    the mark borrows the palette and the silhouette family without imitating
+    a trademark.
+  -->
+  <defs>
+    <linearGradient id="navy" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1c305d"/>
+      <stop offset="1" stop-color="#0c1836"/>
+    </linearGradient>
+  </defs>
+  <path d="M32 3 58 11v21c0 14-11 24-26 29C17 56 6 46 6 32V11z" fill="url(#navy)" stroke="#c4cad6" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M6 26h52v9H6z" fill="#d50a0a" opacity=".9"/>
+  <ellipse cx="32" cy="30.5" rx="12" ry="7.5" fill="#ffffff"/>
+  <path d="M20.5 30.5h23M32 26.5v8M27.5 28.5v4M36.5 28.5v4" stroke="#0c1836" stroke-width="1.8" stroke-linecap="round"/>
+</svg>

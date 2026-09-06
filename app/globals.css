@@ -1,0 +1,145 @@
+@import "tailwindcss";
+
+/*
+ * Dark-only by design (see the classes on <body> in app/layout.tsx) -- there
+ * is no light/dark toggle. Do NOT reintroduce a plain
+ * `body { color: ...; background: ...; }` rule here: in Tailwind v4,
+ * unlayered CSS in this file overrides layered utility classes regardless of
+ * specificity, so a rule like that silently beats the Tailwind classes on
+ * <body> and makes any text without its own explicit colour class inherit an
+ * invisible colour against the dark background.
+ *
+ * Palette is the league shield: navy ground, red accent, white type, silver
+ * for everything secondary. Silver is doing real work here rather than being
+ * decorative -- it is the only one of the four that reads as a mid-tone, so
+ * it carries borders, muted text and the "not your pick" states that would
+ * otherwise have to borrow a neutral grey from outside the palette.
+ */
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  --color-field: #060e22;
+  --color-surface: #0c1836;
+  --color-surface-2: #132348;
+  --color-surface-3: #1c305d;
+  --color-line: #23386a;
+  --color-line-strong: #33508c;
+
+  --color-ink: #ffffff;
+  --color-ink-soft: #d8dee9;
+  --color-ink-muted: #8f9db5;
+
+  /* The shield's red. `accent-strong` is lifted for text, where the pure
+     red on navy sits just under a comfortable contrast ratio. */
+  --color-accent: #d50a0a;
+  --color-accent-strong: #ff4d4d;
+  --color-accent-ink: #ffffff;
+
+  --color-silver: #c4cad6;
+  --color-silver-dim: #7d879b;
+
+  --color-win: #40c463;
+  --color-loss: #ef5350;
+  --color-push: #d8b44a;
+  --color-neutral-site: #5aa9ff;
+}
+
+/*
+ * Field backdrop: silver yard lines every 60px with a brighter line every
+ * fifth, plus hash marks down the middle, tiling forever as the page
+ * scrolls. Kept faint -- it should read as texture behind a data-dense page,
+ * not as a graphic competing with the tables on top of it.
+ */
+body {
+  background-color: var(--color-field);
+  background-image:
+    repeating-linear-gradient(
+      to bottom,
+      rgba(196, 202, 214, 0.07) 0px,
+      rgba(196, 202, 214, 0.07) 1px,
+      transparent 1px,
+      transparent 60px
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      rgba(196, 202, 214, 0.13) 0px,
+      rgba(196, 202, 214, 0.13) 2px,
+      transparent 2px,
+      transparent 300px
+    ),
+    radial-gradient(
+      ellipse 90% 55% at 50% 0%,
+      rgba(213, 10, 10, 0.16),
+      transparent 70%
+    );
+  background-repeat: repeat, repeat, no-repeat;
+  background-attachment: scroll, scroll, fixed;
+}
+
+/* Numeric columns -- records, spreads, points -- line up only if the digits
+   are the same width. Applied to the cells rather than globally so prose
+   keeps the proportional face. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * Champion banner on the bracket. Plays once when a Super Bowl winner is
+ * picked: the rays keep turning, everything else settles and stays put, so
+ * it is celebratory on arrival without leaving a permanently moving element
+ * on a page people then read.
+ */
+@keyframes champion-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes champion-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  70% {
+    transform: scale(1.08);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes champion-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+.champion-banner {
+  animation: champion-rise 500ms ease-out both;
+}
+
+.champion-logo {
+  animation: champion-pop 620ms cubic-bezier(0.34, 1.56, 0.64, 1) 120ms both;
+}
+
+/* Rotates about the top edge, where the conic gradient is centred, so the
+   rays sweep rather than wobble. */
+.champion-rays {
+  transform-origin: 50% 0%;
+  animation: champion-spin 60s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .champion-banner,
+  .champion-logo,
+  .champion-rays {
+    animation: none;
+  }
+}

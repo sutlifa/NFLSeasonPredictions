@@ -3,7 +3,6 @@ import {
   ESPN_DIVISION_GROUP_IDS,
   REGULAR_SEASON_TYPE,
   type Conference,
-  type DivisionKey,
   type DivisionName,
 } from "./nfl";
 import type { GameStatus } from "./types";
@@ -231,13 +230,20 @@ function readOdds(
   let spread = typeof best.spread === "number" ? best.spread : null;
 
   if (spread !== null && spread !== 0) {
-    const homeIsFavourite =
-      best.homeTeamOdds?.favorite === true ||
-      (best.homeTeamOdds?.team?.id != null &&
-        homeEspnId != null &&
-        best.homeTeamOdds.team.id === homeEspnId &&
-        best.homeTeamOdds.favorite === true);
-    const awayIsFavourite = best.awayTeamOdds?.favorite === true;
+    // Trust the `favorite` flag only on the block that actually describes
+    // the home club. ESPN has been seen to return the two odds objects in
+    // either order, so matching on team id is what makes this reliable;
+    // when the ids are absent the flags are taken at face value.
+    const homeBlock =
+      best.homeTeamOdds?.team?.id != null && homeEspnId != null
+        ? best.homeTeamOdds.team.id === homeEspnId
+          ? best.homeTeamOdds
+          : best.awayTeamOdds
+        : best.homeTeamOdds;
+    const awayBlock = homeBlock === best.homeTeamOdds ? best.awayTeamOdds : best.homeTeamOdds;
+
+    const homeIsFavourite = homeBlock?.favorite === true;
+    const awayIsFavourite = awayBlock?.favorite === true;
 
     // Only correct when the flags actually disagree with the sign. If
     // neither side is flagged there is nothing to check against, so the

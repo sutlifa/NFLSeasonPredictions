@@ -38,8 +38,11 @@ function pickWildCards(
   ctx: TiebreakContext,
   count: number,
 ): number[] {
-  const queues = new Map(
-    [...queuesByDivision].map(([key, ids]) => [key, [...ids]] as const),
+  // Copied rather than mutated in place: this runs on every standings and
+  // bracket render, and draining the caller's arrays would empty the
+  // division orders it still needs.
+  const queues = new Map<string, number[]>(
+    [...queuesByDivision].map(([key, ids]) => [key, [...ids]]),
   );
   const chosen: number[] = [];
 

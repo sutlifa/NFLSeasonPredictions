@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 type NavLink = { href: string; label: string };
 
@@ -20,22 +20,25 @@ type Props = {
  *
  * This has to be a client component rather than a CSS-only <details>
  * toggle: Next's <Link> navigates on the client, so a details-based menu
- * would stay open on top of whatever page you just moved to. Watching the
- * pathname lets it close itself on navigation.
+ * would stay open on top of whatever page you just moved to.
+ *
+ * Rather than closing itself in an effect, the menu remembers WHICH page it
+ * was opened on and is only open while that is still the current page. Any
+ * navigation -- a link, the back button, anything -- changes the pathname
+ * and closes it during render, with no cascading second render.
  */
 export function MobileNav({ links, userLabel, signOutAction }: Props) {
-  const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const [openedAt, setOpenedAt] = useState<string | null>(null);
+  const open = openedAt === pathname;
 
-  useEffect(() => {
-    setOpen(false);
-  }, [pathname]);
+  const setOpen = (next: boolean) => setOpenedAt(next ? pathname : null);
 
   return (
     <div className="sm:hidden">
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => setOpen(!open)}
         aria-expanded={open}
         aria-controls="mobile-nav-panel"
         aria-label={open ? "Close menu" : "Open menu"}
