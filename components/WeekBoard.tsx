@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { GamePicker, type Pick } from "@/components/GamePicker";
 import { WeekActions } from "@/components/WeekActions";
 import type { Game, Team } from "@/lib/types";
@@ -16,29 +16,29 @@ type Props = {
   clearAction: (formData: FormData) => Promise<void>;
 };
 
+const NO_PICK: Pick = { winner: null, bucket: null };
+
 /**
  * Owns the week's picks for as long as the page is open.
  *
- * This exists to stop a single pick re-rendering the whole page. Each pick
- * used to call revalidatePath on this very route, so Next re-fetched and
- * re-applied it like a navigation: the page jumped back to the top, and the
- * card flashed. The flash came from useOptimistic, which drops its value the
- * moment its transition ends -- for the beat between that and the refreshed
- * payload landing, the card rendered the STALE server props, so the pick you
- * had just made visibly reverted and then came back.
+ * This exists to stop a single pick re-rendering the whole page. Picks used
+ * to call revalidatePath on the route the user was standing on, so Next
+ * re-fetched and re-applied it like a navigation after every click: the page
+ * jumped to the top, and the card flashed as it briefly rendered stale
+ * server props before the new payload arrived.
  *
- * So the committed state lives here in useState rather than being read back
- * off the server after every click, and savePickAction no longer revalidates
- * this route at all. It still revalidates the pages a pick actually feeds
- * (standings, playoffs, leaderboard, home), which the user is not looking at.
+ * The model here is LOCAL EDITS WIN. Server props are the baseline; anything
+ * the user has touched this session overrides them. That is deliberately
+ * more robust than seeding state once and hoping the route never refreshes:
+ * an earlier attempt keyed this component on a signature of the server's
+ * picks so a refresh would re-seed it, which turned every refresh into a full
+ * remount and threw away in-flight picks. Overriding costs nothing and
+ * survives a refresh from any source, including one triggered by another
+ * page's revalidation.
  *
- * The counter and the Fill/Clear counts are derived from this state, so they
- * stay live without a round trip.
- *
- * Fill and Clear are different: they rewrite many rows at once, so they DO
- * revalidate this route, and the page hands this component a `key` built from
- * the server's picks. A changed key remounts it and re-seeds from the server;
- * an individual pick leaves the key alone, so nothing is thrown away.
+ * Fill and Clear are the exception: they rewrite many rows at once, so the
+ * local overrides are dropped once they finish and the server's version
+ * becomes the truth again.
  */
 export function WeekBoard({
   week,
@@ -49,12 +49,15 @@ export function WeekBoard({
   fillAction,
   clearAction,
 }: Props) {
-  const teamById = new Map(teams.map((t) => [t.id, t]));
-  const locked = new Set(lockedGameIds);
+  const teamById = useMemo(
+    () => new Map(teams.map((t) => [t.id, t])),
+    [teams],
+  );
+  const locked = useMemo(() => new Set(lockedGameIds), [lockedGameIds]);
 
-  const [picks, setPicks] = useState<Map<number, Pick>>(
+  const serverPicks = useMemo(
     () =>
-      new Map(
+      new Map<number, Pick>(
         games.map((game) => [
           game.id,
           {
@@ -63,15 +66,25 @@ export function WeekBoard({
           },
         ]),
       ),
+    [games],
   );
+
+  const [local, setLocal] = useState<Map<number, Pick>>(new Map());
   const [errors, setErrors] = useState<Map<number, string>>(new Map());
+
+  const pickFor = useCallback(
+    (gameId: number): Pick => local.get(gameId) ?? serverPicks.get(gameId) ?? NO_PICK,
+    [local, serverPicks],
+  );
 
   const onPick = useCallback(
     async (gameId: number, next: Pick) => {
       if (next.winner === null || next.bucket === null) return;
 
-      const previous = picks.get(gameId) ?? { winner: null, bucket: null };
-      setPicks((current) => new Map(current).set(gameId, next));
+      const hadLocal = local.has(gameId);
+      const previous = local.get(gameId);
+
+      setLocal((current) => new Map(current).set(gameId, next));
       setErrors((current) => {
         if (!current.has(gameId)) return current;
         const copy = new Map(current);
@@ -88,10 +101,15 @@ export function WeekBoard({
       try {
         await saveAction(formData);
       } catch (err) {
-        // Put it back. The server refused it -- almost always because the
-        // game kicked off while the page was open -- so leaving the new pick
-        // on screen would be showing something that was never saved.
-        setPicks((current) => new Map(current).set(gameId, previous));
+        // Put it back. The server refused it, almost always because the game
+        // kicked off while the page was open, so leaving the new pick on
+        // screen would be showing something that was never saved.
+        setLocal((current) => {
+          const copy = new Map(current);
+          if (hadLocal && previous) copy.set(gameId, previous);
+          else copy.delete(gameId);
+          return copy;
+        });
         setErrors((current) =>
           new Map(current).set(
             gameId,
@@ -100,21 +118,31 @@ export function WeekBoard({
         );
       }
     },
-    [picks, saveAction, week],
+    [local, saveAction, week],
+  );
+
+  /** Bulk actions rewrite rows wholesale, so local overrides stop applying. */
+  const runBulk = useCallback(
+    async (action: (formData: FormData) => Promise<void>) => {
+      const formData = new FormData();
+      formData.set("week", String(week));
+      await action(formData);
+      setLocal(new Map());
+      setErrors(new Map());
+    },
+    [week],
   );
 
   const openGames = games.filter((game) => !locked.has(game.id));
-  const pickedCount = games.filter(
-    (game) => picks.get(game.id)?.winner != null,
-  ).length;
+  const pickedCount = games.filter((game) => pickFor(game.id).winner != null).length;
   const fillableCount = openGames.filter(
     (game) =>
-      picks.get(game.id)?.winner == null &&
+      pickFor(game.id).winner == null &&
       game.spread !== null &&
       game.spread !== 0,
   ).length;
   const clearableCount = openGames.filter(
-    (game) => picks.get(game.id)?.winner != null,
+    (game) => pickFor(game.id).winner != null,
   ).length;
   const complete = games.length > 0 && pickedCount === games.length;
 
@@ -129,11 +157,10 @@ export function WeekBoard({
         </p>
         {games.length > 0 && (
           <WeekActions
-            week={week}
             fillableCount={fillableCount}
             clearableCount={clearableCount}
-            fillAction={fillAction}
-            clearAction={clearAction}
+            onFill={() => runBulk(fillAction)}
+            onClear={() => runBulk(clearAction)}
           />
         )}
       </div>
@@ -155,7 +182,7 @@ export function WeekBoard({
                 home={home}
                 away={away}
                 locked={locked.has(game.id)}
-                pick={picks.get(game.id) ?? { winner: null, bucket: null }}
+                pick={pickFor(game.id)}
                 error={errors.get(game.id) ?? null}
                 onPick={onPick}
               />

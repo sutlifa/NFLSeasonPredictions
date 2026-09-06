@@ -13,37 +13,28 @@ async function requireUserId(): Promise<number> {
 }
 
 /**
- * Everything downstream of a changed pick. A pick moves the standings, the
- * standings decide the playoff seeds, and the seeds lay out the bracket -- so
- * a change has to be carried all the way down, or the bracket keeps showing
- * the field the old picks produced.
+ * Bulk actions rewrite many rows at once, so the picks page has to be re-read
+ * from the server rather than mirrored locally.
  *
- * Note what is NOT here: the picks page itself. Revalidating the route the
- * user is standing on made Next re-fetch and re-apply it like a navigation
- * after every single click, which threw the page back to the top and made
- * the card flash as it briefly re-rendered from stale props. The board holds
- * its own state while it is open (see components/WeekBoard.tsx), so it does
- * not need the server to tell it what was just clicked.
+ * A single pick calls NONE of this, deliberately. Every route in this app is
+ * dynamic -- they all read the session, so none of them is cached and there
+ * is no route cache for revalidatePath to clear. What it did do was make Next
+ * re-fetch and re-apply the route the user was standing on after every click,
+ * which threw the page back to the top and made the card flash as it briefly
+ * re-rendered from stale props. Dynamic routes are refetched on navigation
+ * anyway, so the downstream pages are fresh when they are next opened without
+ * being told.
  */
-function revalidateDownstream() {
+function revalidateWeek(week: number) {
+  revalidatePath(`/picks/${week}`);
+  revalidatePath("/picks");
   revalidatePath("/standings");
   revalidatePath("/playoffs");
   revalidatePath("/leaderboard");
-  // Both clubs in the game have a season page showing this pick. The pick
-  // does not say which, so revalidate the whole segment.
+  // Both clubs in the game have a season page showing these picks. The picks
+  // do not say which, so revalidate the whole segment.
   revalidatePath("/teams/[teamId]", "page");
   revalidatePath("/");
-}
-
-/**
- * As above, plus the picks page. Used by the bulk actions -- they rewrite
- * many rows at once, so the board has to be re-seeded from the server rather
- * than trying to mirror the change locally.
- */
-function revalidateIncludingWeek(week: number) {
-  revalidatePath(`/picks/${week}`);
-  revalidatePath("/picks");
-  revalidateDownstream();
 }
 
 /**
@@ -77,7 +68,6 @@ export async function savePickAction(formData: FormData) {
 
   await savePick(userId, { gameId, winnerTeamId, marginBucket });
   await settleWeek(userId, week);
-  revalidateDownstream();
 }
 
 /**
@@ -90,7 +80,7 @@ export async function clearWeekAction(formData: FormData) {
   if (!Number.isInteger(week)) throw new Error("Invalid week");
 
   await clearWeek(userId, week);
-  revalidateIncludingWeek(week);
+  revalidateWeek(week);
 }
 
 /**
@@ -136,5 +126,5 @@ export async function fillWeekAction(formData: FormData) {
     });
   }
   await settleWeek(userId, week);
-  revalidateIncludingWeek(week);
+  revalidateWeek(week);
 }

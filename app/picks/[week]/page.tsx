@@ -31,18 +31,6 @@ export default async function PicksPage({ params }: PageProps<"/picks/[week]">) 
   const lockedGameIds = games.filter((g) => isLocked(g, now)).map((g) => g.id);
   const withoutLine = games.filter((g) => g.spread === null).length;
 
-  // Remount key for WeekBoard, which owns the week's picks once the page is
-  // open. An individual pick deliberately does NOT revalidate this route, so
-  // this signature is unchanged and the client's state survives. Fill and
-  // Clear rewrite many rows and DO revalidate, which changes the signature
-  // and re-seeds the board from the server.
-  const picksSignature = games
-    .map(
-      (g) =>
-        `${g.id}:${g.predictedWinnerTeamId ?? ""}:${g.predictedMarginBucket ?? ""}`,
-    )
-    .join("|");
-
   return (
     <div className="space-y-5">
       <WeekPager week={week} />
@@ -85,7 +73,6 @@ export default async function PicksPage({ params }: PageProps<"/picks/[week]">) 
       )}
 
       <WeekBoard
-        key={picksSignature}
         week={week}
         games={games}
         teams={teams}

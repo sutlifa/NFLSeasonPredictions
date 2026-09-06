@@ -3,13 +3,16 @@
 import { useState, useTransition } from "react";
 
 type Props = {
-  week: number;
   /** Open, unpicked games that actually have a line to default from. */
   fillableCount: number;
   /** Picks that could still be removed -- locked games are never touched. */
   clearableCount: number;
-  fillAction: (formData: FormData) => Promise<void>;
-  clearAction: (formData: FormData) => Promise<void>;
+  /**
+   * Run by the parent rather than called here, so it can drop its local pick
+   * overrides once the bulk write has actually landed.
+   */
+  onFill: () => Promise<void>;
+  onClear: () => Promise<void>;
 };
 
 /**
@@ -20,20 +23,17 @@ type Props = {
  * whole week of picks with nothing to undo it.
  */
 export function WeekActions({
-  week,
   fillableCount,
   clearableCount,
-  fillAction,
-  clearAction,
+  onFill,
+  onClear,
 }: Props) {
   const [confirming, setConfirming] = useState(false);
   const [pending, startTransition] = useTransition();
 
-  function run(action: (formData: FormData) => Promise<void>) {
-    const formData = new FormData();
-    formData.set("week", String(week));
+  function run(action: () => Promise<void>) {
     startTransition(async () => {
-      await action(formData);
+      await action();
       setConfirming(false);
     });
   }
@@ -47,7 +47,7 @@ export function WeekActions({
         <button
           type="button"
           disabled={pending}
-          onClick={() => run(clearAction)}
+          onClick={() => run(onClear)}
           className="rounded bg-loss px-2.5 py-1 text-xs font-semibold text-white disabled:opacity-60"
         >
           {pending ? "Clearing…" : "Clear"}
@@ -69,7 +69,7 @@ export function WeekActions({
       <button
         type="button"
         disabled={pending || fillableCount === 0}
-        onClick={() => run(fillAction)}
+        onClick={() => run(onFill)}
         title={
           fillableCount === 0
             ? "Nothing left to fill — every open game with a posted line is already picked"
