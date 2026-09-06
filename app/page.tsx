@@ -161,7 +161,9 @@ export default async function HomePage() {
               points · {myRank === 1 ? "1st" : `#${myRank}`} of{" "}
               {leaderboard.length}
               <p className="mt-1 text-xs text-ink-muted">
-                {me.correct}-{me.wrong} on the season
+                {me.correct}-{me.wrong} on winners · {me.margins} margin
+                {me.margins === 1 ? "" : "s"}
+                {me.postseasonPoints > 0 && ` · +${me.postseasonPoints} postseason`}
               </p>
             </>
           ) : (

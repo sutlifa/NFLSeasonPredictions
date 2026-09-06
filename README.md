@@ -15,8 +15,13 @@ Live at <https://nfl-season-predictions.vercel.app/>.
 - **Weekly picks.** Pick a winner and roughly how big the margin will be. Point
   spreads are shown beside each side as context but are not pickable. Picks
   lock at each game's kickoff, enforced on the server.
-- **Leaderboard.** One point per game whose winner you called. Filterable by
-  week or season to date.
+- **Leaderboard.** One point per game whose winner you called, plus one more
+  where the margin bucket landed. Filterable by week or season to date.
+- **Postseason bonus.** Your bracket is paid per club that actually reached
+  each round, doubling as it goes — 1 for the field, 2 divisional, 4
+  conference championship, 8 Super Bowl, 16 for the champion. A club you had
+  going all the way is worth 31; a perfect bracket is 78. The real bracket is
+  derived from ESPN's postseason schedule, not entered by hand.
 - **Standings.** Division and conference tables from your picks, or from the
   real results, with the league's published tiebreaking procedure applied and
   the deciding step named wherever one was actually needed.
@@ -124,6 +129,8 @@ lib/standings.ts     tallies results into records and points
 lib/tiebreakers.ts   the league's published tiebreaking procedure
 lib/playoffs.ts      seeding and the reseeding bracket
 lib/grade.ts         how one pick settles (pure -- the client imports this)
+lib/seasonScore.ts   scoring constants and the postseason bonus (pure)
+lib/postseason.ts    real bracket from the DB, predicted bracket per user
 lib/scoring.ts       leaderboard totals
 lib/queries.ts       everything else that touches the database
 ```

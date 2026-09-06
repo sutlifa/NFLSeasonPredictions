@@ -4,7 +4,7 @@ import { useOptimistic, useState, useTransition } from "react";
 import { TeamLogo } from "@/components/TeamLogo";
 import { formatKickoff, formatSpread } from "@/lib/format";
 import { MARGIN_BUCKETS } from "@/lib/margin";
-import { gradeStraightUp, type PickGrade } from "@/lib/grade";
+import { gradeMargin, gradeStraightUp, type PickGrade } from "@/lib/grade";
 import type { Game, Team } from "@/lib/types";
 
 type Props = {
@@ -79,6 +79,16 @@ export function GamePicker({
   const grade: PickGrade = isFinal
     ? gradeStraightUp(
         game.predictedWinnerTeamId,
+        game.homeTeamId,
+        game.awayTeamId,
+        game.homeScore!,
+        game.awayScore!,
+      )
+    : "none";
+  const marginGrade: PickGrade = isFinal
+    ? gradeMargin(
+        game.predictedWinnerTeamId,
+        game.predictedMarginBucket,
         game.homeTeamId,
         game.awayTeamId,
         game.homeScore!,
@@ -221,10 +231,21 @@ export function GamePicker({
       </div>
 
       {isFinal && (
-        <div className="mt-2 text-[11px]">
+        <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
           <span className={`rounded border px-2 py-0.5 ${GRADE_STYLES[grade]}`}>
-            {GRADE_LABELS[grade]}
+            Winner: {GRADE_LABELS[grade]}
           </span>
+          {/* Only shown when the margin was actually in play -- on a game
+              whose winner was missed there is no margin to have been right
+              about, and a "Wrong" badge there would read as a second
+              penalty for the same mistake. */}
+          {marginGrade !== "none" && (
+            <span
+              className={`rounded border px-2 py-0.5 ${GRADE_STYLES[marginGrade]}`}
+            >
+              Margin: {marginGrade === "win" ? "+1" : "missed"}
+            </span>
+          )}
         </div>
       )}
 

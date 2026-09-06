@@ -1,6 +1,6 @@
 import { revalidatePath } from "next/cache";
 import { sql } from "@/lib/db";
-import { syncWeek } from "@/lib/ingest";
+import { syncPostseason, syncWeek } from "@/lib/ingest";
 import { CURRENT_SEASON, TOTAL_WEEKS } from "@/lib/nfl";
 import { getCurrentWeek } from "@/lib/queries";
 
@@ -38,11 +38,19 @@ export async function GET(request: Request) {
   let oddsUpdated = 0;
   let error: string | null = null;
 
+  let postseason: Awaited<ReturnType<typeof syncPostseason>> | null = null;
+
   try {
     for (const week of weeks) {
       const outcome = await syncWeek(CURRENT_SEASON, week);
       gamesUpdated += outcome.gamesUpserted;
       oddsUpdated += outcome.oddsUpdated;
+    }
+    // Only worth asking once the regular season is nearly done -- before
+    // then ESPN has no postseason games to derive a bracket from, and this
+    // would be four wasted requests every single day from September.
+    if (current >= TOTAL_WEEKS - 1) {
+      postseason = await syncPostseason(CURRENT_SEASON);
     }
   } catch (err) {
     error = err instanceof Error ? err.message : String(err);
@@ -56,11 +64,12 @@ export async function GET(request: Request) {
   // Scores changed, so anything derived from them is stale.
   revalidatePath("/leaderboard");
   revalidatePath("/standings");
+  revalidatePath("/playoffs");
   revalidatePath("/");
   for (const week of weeks) revalidatePath(`/picks/${week}`);
 
   if (error) {
     return Response.json({ ok: false, weeks, error }, { status: 500 });
   }
-  return Response.json({ ok: true, weeks, gamesUpdated, oddsUpdated });
+  return Response.json({ ok: true, weeks, gamesUpdated, oddsUpdated, postseason });
 }

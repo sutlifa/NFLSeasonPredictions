@@ -11,16 +11,30 @@ export default function AboutPage() {
       </p>
       <h2 className="pt-2 text-lg font-bold text-ink">How scoring works</h2>
       <p>
-        One point for every game whose winner you call. The margin you attach
-        to a pick is not scored — it exists so your predicted season has point
-        differentials, which the league&rsquo;s tiebreaking procedure needs from
-        &ldquo;net points in common games&rdquo; onward. So it does real work,
-        just not on the leaderboard.
+        Two points are on offer in every game: one for calling the winner, and
+        one more if the margin bucket lands too. The margin only pays on a game
+        you already got right — matching the bucket while having the wrong club
+        win is a coincidence rather than a read.
       </p>
       <p>
-        Point spreads are shown beside each game as the market&rsquo;s own read,
-        but nothing is picked or graded against them. Picks lock at each
-        game&rsquo;s individual kickoff rather than at a weekly deadline.
+        Picks lock at each game&rsquo;s individual kickoff rather than at a
+        weekly deadline, so the Thursday game closing does not stop you editing
+        Sunday. Point spreads are shown beside each game as the market&rsquo;s
+        own read, but nothing is picked or graded against them.
+      </p>
+      <h2 className="pt-2 text-lg font-bold text-ink">The postseason bonus</h2>
+      <p>
+        When the real bracket plays out, your bracket is paid per club that
+        actually reached each round, doubling as it goes: 1 point for each of
+        your 14 that made the field, 2 for each that reached the divisional
+        round, 4 for a conference championship, 8 for the Super Bowl, and 16
+        for calling the champion outright.
+      </p>
+      <p>
+        Because it compounds, a club you had going all the way is worth 31 on
+        its own — it collects at every round on the way there. A perfect
+        bracket is 78. Rounds that have not been played yet count as nothing
+        rather than as misses.
       </p>
       <h2 className="pt-2 text-lg font-bold text-ink">Standings and playoffs</h2>
       <p>

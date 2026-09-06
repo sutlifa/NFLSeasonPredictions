@@ -162,3 +162,95 @@ export async function syncSeason(season: number): Promise<SyncOutcome> {
 }
 
 export type { EspnGame };
+
+/**
+ * Derive the real postseason bracket from ESPN and store it.
+ *
+ * There is no feed that says "these 14 clubs made the field" -- but the games
+ * themselves say it, so the rounds are read off the schedule rather than
+ * entered by hand:
+ *
+ *   field       every club that appears in the wild-card OR divisional round.
+ *               The union matters: the two top seeds have a bye and play no
+ *               wild-card game, so wild-card clubs alone is 12, not 14.
+ *   divisional  the eight clubs in the divisional round.
+ *   conference  the four in the conference championships.
+ *   super_bowl  the two in the Super Bowl.
+ *   champion    whoever won it.
+ *
+ * A round is only written once its games have actually been scheduled, so an
+ * unplayed January leaves the later rounds absent rather than empty -- the
+ * bonus scoring treats "absent" as "not yet" and "empty" would read as
+ * "nobody got it right".
+ *
+ * ESPN's postseason weeks: 1 wild card, 2 divisional, 3 conference
+ * championship, 4 Pro Bowl (skipped -- it is not a playoff game), 5 Super
+ * Bowl.
+ */
+const POSTSEASON_TYPE = 3;
+const POSTSEASON_WEEKS = { wildcard: 1, divisional: 2, conference: 3, superBowl: 5 };
+
+export async function syncPostseason(season: number): Promise<{
+  rounds: Record<string, number>;
+  championSet: boolean;
+}> {
+  const teamIds = await teamIdsByEspnId();
+  const toIds = (games: EspnGame[]) => {
+    const ids = new Set<number>();
+    for (const g of games) {
+      const home = teamIds.get(g.homeEspnId);
+      const away = teamIds.get(g.awayEspnId);
+      if (home) ids.add(home);
+      if (away) ids.add(away);
+    }
+    return [...ids];
+  };
+
+  const [wildcard, divisional, conference, superBowl] = await Promise.all([
+    fetchWeek(season, POSTSEASON_WEEKS.wildcard, POSTSEASON_TYPE),
+    fetchWeek(season, POSTSEASON_WEEKS.divisional, POSTSEASON_TYPE),
+    fetchWeek(season, POSTSEASON_WEEKS.conference, POSTSEASON_TYPE),
+    fetchWeek(season, POSTSEASON_WEEKS.superBowl, POSTSEASON_TYPE),
+  ]);
+
+  const sets: Record<string, number[]> = {
+    field: toIds([...wildcard, ...divisional]),
+    divisional: toIds(divisional),
+    conference: toIds(conference),
+    super_bowl: toIds(superBowl),
+  };
+
+  const written: Record<string, number> = {};
+  for (const [round, ids] of Object.entries(sets)) {
+    if (ids.length === 0) continue;
+    await sql`
+      INSERT INTO real_playoff_rounds (season, round, team_ids)
+      VALUES (${season}, ${round}, ${ids})
+      ON CONFLICT (season, round) DO UPDATE SET
+        team_ids = EXCLUDED.team_ids, updated_at = now()
+    `;
+    written[round] = ids.length;
+  }
+
+  // The champion only exists once the Super Bowl has actually finished.
+  let championSet = false;
+  const final = superBowl.find(
+    (g) => g.status === "final" && g.homeScore !== null && g.awayScore !== null,
+  );
+  if (final && final.homeScore !== final.awayScore) {
+    const winnerEspnId =
+      final.homeScore! > final.awayScore! ? final.homeEspnId : final.awayEspnId;
+    const winnerId = teamIds.get(winnerEspnId);
+    if (winnerId) {
+      await sql`
+        INSERT INTO real_champion (season, team_id)
+        VALUES (${season}, ${winnerId})
+        ON CONFLICT (season) DO UPDATE SET
+          team_id = EXCLUDED.team_id, updated_at = now()
+      `;
+      championSet = true;
+    }
+  }
+
+  return { rounds: written, championSet };
+}

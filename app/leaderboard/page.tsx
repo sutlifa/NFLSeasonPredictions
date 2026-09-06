@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import { auth } from "@/auth";
 import { CURRENT_SEASON, WEEKS, isValidWeek } from "@/lib/nfl";
 import { getCurrentWeek } from "@/lib/queries";
-import { getLeaderboard, getWeeklyPoints } from "@/lib/scoring";
+import { getGradedWeeks, getLeaderboard } from "@/lib/scoring";
+import { BONUS_ROUNDS, POSTSEASON_POINTS, maxPostseasonPoints } from "@/lib/seasonScore";
 
 export const metadata = { title: "Leaderboard · NFL Predictions" };
 
@@ -24,19 +25,15 @@ export default async function LeaderboardPage({
       ? Number(rawWeek)
       : null;
 
-  const [rows, weekly, currentWeek] = await Promise.all([
+  const [rows, gradedWeeks, currentWeek] = await Promise.all([
     getLeaderboard(CURRENT_SEASON, weekFilter ?? undefined),
-    getWeeklyPoints(CURRENT_SEASON),
+    getGradedWeeks(CURRENT_SEASON),
     getCurrentWeek(),
   ]);
 
   const anyGraded = rows.some((r) => r.gamesGraded > 0);
-  // Only weeks that actually have graded games are worth offering as a
-  // filter -- a week nobody has played yet returns an empty board that looks
-  // broken rather than empty.
-  const playedWeeks = WEEKS.filter((w) =>
-    [...weekly.values()].some((byWeek) => byWeek.has(w)),
-  );
+  const postseasonLive = rows.some((r) => r.postseason?.scored);
+  const playedWeeks = WEEKS.filter((w) => gradedWeeks.has(w));
 
   return (
     <div className="space-y-5">
@@ -46,7 +43,7 @@ export default async function LeaderboardPage({
           {weekFilter
             ? `Week ${weekFilter} only`
             : `${CURRENT_SEASON} season to date`}{" "}
-          · one point for every game whose winner you called
+          · one point for the winner, one more if the margin lands
         </p>
       </div>
 
@@ -86,7 +83,10 @@ export default async function LeaderboardPage({
           <p className="text-ink-soft">Nothing graded yet.</p>
           <p className="mt-1 text-sm text-ink-muted">
             Scores appear here as games finish.{" "}
-            <Link href={`/picks/${currentWeek}`} className="text-accent-strong underline">
+            <Link
+              href={`/picks/${currentWeek}`}
+              className="text-accent-strong underline"
+            >
               Make your week {currentWeek} picks
             </Link>
             .
@@ -94,14 +94,17 @@ export default async function LeaderboardPage({
         </div>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-line bg-surface">
-          <table className="w-full min-w-[560px] text-sm">
+          <table className="w-full min-w-[640px] text-sm">
             <thead>
               <tr className="border-b border-line text-left text-[11px] uppercase tracking-wide text-ink-muted">
                 <th className="px-3 py-2 font-medium">#</th>
                 <th className="px-2 py-2 font-medium">Player</th>
-                <th className="px-2 py-2 text-right font-medium">Points</th>
-                <th className="px-2 py-2 text-right font-medium">Record</th>
-                <th className="px-2 py-2 text-right font-medium">Hit rate</th>
+                <th className="px-2 py-2 text-right font-medium">Total</th>
+                <th className="px-2 py-2 text-right font-medium">Winners</th>
+                <th className="px-2 py-2 text-right font-medium">Margins</th>
+                {postseasonLive && (
+                  <th className="px-2 py-2 text-right font-medium">Postseason</th>
+                )}
                 <th className="px-3 py-2 text-right font-medium">Games</th>
               </tr>
             </thead>
@@ -113,7 +116,9 @@ export default async function LeaderboardPage({
                     row.userId === me ? "bg-accent/10" : ""
                   }`}
                 >
-                  <td className="tabular px-3 py-2 text-ink-muted">{index + 1}</td>
+                  <td className="tabular px-3 py-2 text-ink-muted">
+                    {index + 1}
+                  </td>
                   <td className="px-2 py-2">
                     <span className="font-medium">{row.name}</span>
                     {row.userId === me && (
@@ -122,19 +127,44 @@ export default async function LeaderboardPage({
                       </span>
                     )}
                   </td>
-                  <td className="tabular px-2 py-2 text-right font-bold">
+                  <td className="tabular px-2 py-2 text-right text-base font-bold">
                     {row.points}
                   </td>
                   <td className="tabular px-2 py-2 text-right text-ink-soft">
                     {row.correct}-{row.wrong}
-                    {/* A tied game is neither called nor missed, so it is
-                        shown as a third figure rather than folded into the
-                        losses. */}
+                    {/* A tied game is neither called nor missed, so it shows
+                        as a third figure rather than folded into the losses. */}
                     {row.ties > 0 && `-${row.ties}`}
+                    <span className="ml-1 text-xs text-ink-muted">
+                      {pct(row.pct)}
+                    </span>
                   </td>
                   <td className="tabular px-2 py-2 text-right text-ink-soft">
-                    {pct(row.pct)}
+                    {row.margins}
+                    <span className="ml-1 text-xs text-ink-muted">
+                      {pct(row.marginPct)}
+                    </span>
                   </td>
+                  {postseasonLive && (
+                    <td className="tabular px-2 py-2 text-right text-ink-soft">
+                      {row.postseasonPoints > 0 ? (
+                        <span className="font-semibold text-accent-strong">
+                          +{row.postseasonPoints}
+                        </span>
+                      ) : (
+                        <span className="text-ink-muted">—</span>
+                      )}
+                      {row.postseason?.championCorrect && (
+                        <span
+                          className="ml-1"
+                          title="Called the Super Bowl champion"
+                          aria-label="Called the Super Bowl champion"
+                        >
+                          🏆
+                        </span>
+                      )}
+                    </td>
+                  )}
                   <td className="tabular px-3 py-2 text-right text-ink-muted">
                     {row.gamesGraded}
                   </td>
@@ -145,10 +175,94 @@ export default async function LeaderboardPage({
         </div>
       )}
 
-      <p className="text-xs text-ink-muted">
-        Only the winner is scored. The margin you attach to a pick feeds your
-        predicted standings and the league tiebreakers, not your point total.
-      </p>
+      {postseasonLive && (
+        <section className="overflow-hidden rounded-lg border border-line bg-surface">
+          <h2 className="border-b border-line bg-surface-2 px-3 py-2 text-sm font-bold">
+            Postseason bonus
+          </h2>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[480px] text-sm">
+              <thead>
+                <tr className="border-b border-line text-left text-[11px] uppercase tracking-wide text-ink-muted">
+                  <th className="px-3 py-2 font-medium">Player</th>
+                  {BONUS_ROUNDS.map((round) => (
+                    <th
+                      key={round.key}
+                      className="px-2 py-2 text-right font-medium"
+                      title={`${round.points} point${round.points === 1 ? "" : "s"} per club`}
+                    >
+                      {round.label}
+                    </th>
+                  ))}
+                  <th className="px-3 py-2 text-right font-medium">Champion</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <tr key={row.userId} className="border-t border-line/60">
+                    <td className="px-3 py-2">{row.name}</td>
+                    {BONUS_ROUNDS.map((round) => {
+                      const scored = row.postseason?.rounds.find(
+                        (r) => r.key === round.key,
+                      );
+                      return (
+                        <td
+                          key={round.key}
+                          className="tabular px-2 py-2 text-right text-ink-soft"
+                        >
+                          {scored && scored.possible > 0 ? (
+                            <>
+                              {scored.hits}/{scored.possible}
+                              <span className="ml-1 text-xs text-ink-muted">
+                                +{scored.points}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="text-ink-muted">—</span>
+                          )}
+                        </td>
+                      );
+                    })}
+                    <td className="tabular px-3 py-2 text-right">
+                      {row.postseason?.championCorrect ? (
+                        <span className="font-semibold text-win">
+                          +{POSTSEASON_POINTS.champion}
+                        </span>
+                      ) : (
+                        <span className="text-ink-muted">—</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      <div className="space-y-1 text-xs text-ink-muted">
+        <p>
+          <strong className="text-ink-soft">Regular season.</strong> One point
+          for every game whose winner you called, and one more where the margin
+          bucket landed too. The margin only pays on a game you already got
+          right — matching the bucket while having the wrong club win is a
+          coincidence, not a read.
+        </p>
+        <p>
+          <strong className="text-ink-soft">Postseason.</strong> Your bracket is
+          paid per club that actually reached each round, doubling as it goes:{" "}
+          {BONUS_ROUNDS.map((r) => `${r.points} for ${r.label.toLowerCase()}`).join(
+            ", ",
+          )}
+          , then {POSTSEASON_POINTS.champion} for the Super Bowl champion. A
+          perfect bracket is {maxPostseasonPoints()} points. Rounds that have
+          not been played yet show as “—” rather than as a miss.
+        </p>
+        <p>
+          Point spreads are shown beside each game for reference only — nothing
+          is picked or scored against them.
+        </p>
+      </div>
     </div>
   );
 }

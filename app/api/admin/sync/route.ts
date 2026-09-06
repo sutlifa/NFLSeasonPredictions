@@ -1,4 +1,4 @@
-import { upsertTeams, syncSeason, syncWeek } from "@/lib/ingest";
+import { upsertTeams, syncPostseason, syncSeason, syncWeek } from "@/lib/ingest";
 import { CURRENT_SEASON } from "@/lib/nfl";
 
 /**
@@ -9,6 +9,7 @@ import { CURRENT_SEASON } from "@/lib/nfl";
  *   curl -X POST "$URL/api/admin/sync?what=teams" -H "x-admin-secret: ..."
  *   curl -X POST "$URL/api/admin/sync?what=season&season=2026" -H "..."
  *   curl -X POST "$URL/api/admin/sync?what=week&week=3" -H "..."
+ *   curl -X POST "$URL/api/admin/sync?what=postseason" -H "..."
  */
 export const dynamic = "force-dynamic";
 // Hobby-plan functions are capped at 60s, so `what=season` (18 sequential
@@ -34,6 +35,10 @@ export async function POST(request: Request) {
     }
     if (what === "season") {
       const outcome = await syncSeason(season);
+      return Response.json({ ok: true, season, ...outcome });
+    }
+    if (what === "postseason") {
+      const outcome = await syncPostseason(season);
       return Response.json({ ok: true, season, ...outcome });
     }
     if (what === "week") {
