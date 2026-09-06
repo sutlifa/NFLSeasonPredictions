@@ -4,12 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/check-svg.mjs && next build",
     "start": "next start",
     "lint": "eslint",
     "db:migrate": "node --env-file=.env.local --import tsx scripts/migrate.ts",
     "seed:teams": "node --env-file=.env.local --import tsx scripts/seed-teams.ts",
-    "seed:schedule": "node --env-file=.env.local --import tsx scripts/seed-schedule.ts"
+    "seed:schedule": "node --env-file=.env.local --import tsx scripts/seed-schedule.ts",
+    "check:svg": "node scripts/check-svg.mjs"
   },
   "dependencies": {
     "next": "16.3.2",
