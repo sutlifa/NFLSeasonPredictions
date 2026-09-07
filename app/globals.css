@@ -82,8 +82,13 @@ body {
  * something to catch the eye you arrive at a wall of near-identical cards
  * with no idea which one you asked for. The ring fades after a few seconds
  * so it does not become permanent furniture on a page people then work in.
+ *
+ * Driven by a class from components/GameHashHighlight.tsx, NOT by :target.
+ * Next applies the fragment through the History API, which does not
+ * re-evaluate :target -- so the CSS-only version silently did nothing on
+ * exactly the navigation it existed for.
  */
-[id^="game-"]:target {
+.game-target {
   animation: game-target 2.8s ease-out forwards;
 }
 
@@ -100,7 +105,7 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  [id^="game-"]:target {
+  .game-target {
     animation: none;
     border-color: var(--color-accent);
   }

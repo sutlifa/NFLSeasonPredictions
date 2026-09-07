@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { auth } from "@/auth";
+import { GameHashHighlight } from "@/components/GameHashHighlight";
 import { TeamLogo } from "@/components/TeamLogo";
 import { WeekBoard } from "@/components/WeekBoard";
 import { WeekPager } from "@/components/WeekPager";
@@ -45,6 +46,7 @@ export default async function PicksPage({ params }: PageProps<"/picks/[week]">) 
 
   return (
     <div className="space-y-5">
+      <GameHashHighlight />
       <WeekPager week={week} />
 
       <h1 className="text-2xl font-bold">
