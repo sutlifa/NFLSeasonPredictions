@@ -46,9 +46,22 @@ export default async function TeamPage({ params }: PageProps<"/teams/[teamId]">)
       </div>
 
       <section className="overflow-hidden rounded-lg border border-line bg-surface">
-        <h2 className="border-b border-line bg-surface-2 px-3 py-2 text-sm font-bold">
-          {CURRENT_SEASON} schedule
-        </h2>
+        {/* Each row below carries two links to two different places, and
+            nothing about the row says so, so both routes were findable only
+            by accident. Said here rather than on the Teams index because
+            this is the page the rows are actually on. */}
+        <div className="border-b border-line bg-surface-2 px-3 py-2">
+          <h2 className="text-sm font-bold">{CURRENT_SEASON} schedule</h2>
+          <p className="mt-0.5 text-xs text-ink-muted">
+            Tap an{" "}
+            <span className="font-medium text-ink-soft">opponent&rsquo;s name</span>{" "}
+            to open their schedule, or the{" "}
+            <span className="font-medium text-ink-soft">
+              Pick / Win / Loss badge
+            </span>{" "}
+            to jump straight to that game in your weekly picks.
+          </p>
+        </div>
         <ul>
           {schedule.map((game) => {
             const isHome = game.homeTeamId === teamId;

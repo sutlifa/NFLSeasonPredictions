@@ -10,24 +10,7 @@ export default async function TeamsPage() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold">Teams</h1>
-        {/* The two routes out of a club's schedule are not obvious from
-            looking at it -- a row carries two links to two different places,
-            and nothing on the row says so. Spelling it out here costs one
-            line and saves everyone finding it by accident. */}
-        <p className="mt-1 text-sm text-ink-muted">
-          Open a club to see its full schedule and predicted record. On any
-          game there, the{" "}
-          <span className="font-medium text-ink-soft">opponent&rsquo;s name</span>{" "}
-          takes you to that club&rsquo;s schedule, and the{" "}
-          <span className="font-medium text-ink-soft">
-            Pick / Win / Loss badge
-          </span>{" "}
-          on the right jumps straight to that game in your weekly picks, ready
-          to change.
-        </p>
-      </div>
+      <h1 className="text-2xl font-bold">Teams</h1>
 
       {CONFERENCES.map((conference) => (
         <section key={conference} className="space-y-3">
