@@ -110,7 +110,13 @@ export default async function PicksPage({ params }: PageProps<"/picks/[week]">) 
                   title={`${team.name} — ${team.conference} ${team.division}`}
                 >
                   <TeamLogo logoUrl={team.logoUrl} name={team.name} size={18} />
-                  <span>{team.location}</span>
+                  {/* The nickname is not decoration here: two clubs share
+                      Los Angeles and two share New York, so the city alone
+                      does not say which one is off this week. */}
+                  <span>
+                    {team.location}{" "}
+                    <span className="text-ink-muted">{team.nickname}</span>
+                  </span>
                 </Link>
               </li>
             ))}
