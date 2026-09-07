@@ -100,7 +100,7 @@ export function WeekBoard({
 
       try {
         await saveAction(formData);
-      } catch (err) {
+      } catch {
         // Put it back. The server refused it, almost always because the game
         // kicked off while the page was open, so leaving the new pick on
         // screen would be showing something that was never saved.
@@ -110,10 +110,17 @@ export function WeekBoard({
           else copy.delete(gameId);
           return copy;
         });
+        // Deliberately NOT the thrown error's message. Next masks server
+        // errors in production, so what actually arrives here is a digest
+        // like "Minified React error #441" -- which tells the reader
+        // nothing and looks like the site is broken. Even our own
+        // "that game has already kicked off" never survives the trip. A
+        // fixed sentence naming the likely cause and the way out is more
+        // use than a redacted stack.
         setErrors((current) =>
           new Map(current).set(
             gameId,
-            err instanceof Error ? err.message : "Could not save that pick",
+            "Could not save that pick. It may have kicked off — reload to see the latest.",
           ),
         );
       }
