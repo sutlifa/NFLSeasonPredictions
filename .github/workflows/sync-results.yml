@@ -1,0 +1,86 @@
+# Pulls fresh scores and point spreads more often than Vercel's Hobby plan
+# allows. Hobby caps cron at once per day, which is fine for odds in midweek
+# and useless on a Sunday afternoon, so the schedule here clusters around the
+# windows when games are actually being played and simply calls the same
+# endpoint Vercel's cron calls.
+#
+# The Vercel cron is deliberately LEFT IN PLACE as a floor. GitHub's
+# scheduled workflows are best effort: runs are frequently late by 5-20
+# minutes under load and can be dropped entirely, so this is the thing that
+# makes scores timely, not the thing that guarantees they arrive.
+#
+# Times are UTC, which GitHub does not adjust for daylight saving. Eastern is
+# UTC-4 until early November and UTC-5 after, so each window below is widened
+# by an hour at both ends rather than tracking the change.
+name: Sync results
+
+on:
+  schedule:
+    # Sunday, 09:00-19:00 ET: the international window through the late games.
+    - cron: "*/15 13-23 * * 0"
+    # Sunday night football, which lands after midnight UTC on Monday.
+    - cron: "*/15 0-5 * * 1"
+    # Monday night football.
+    - cron: "*/15 0-5 * * 2"
+    # Thursday night football.
+    - cron: "*/15 0-5 * * 5"
+    # Saturday games, which appear from about week 15.
+    - cron: "*/15 17-23 * * 6"
+    - cron: "*/15 0-5 * * 0"
+  # So a sync can be forced from the Actions tab without waiting for a window.
+  workflow_dispatch:
+
+# A late run must never pile up on top of one already going: they would race
+# on the same rows and hammer ESPN for nothing.
+concurrency:
+  group: sync-results
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Skip out of season
+        id: season
+        run: |
+          MONTH=$(date -u +%m)
+          # September through February. Outside that there are no games and
+          # no lines to fetch, and this would spend seven months politely
+          # asking ESPN for nothing.
+          if [ "$MONTH" -ge 9 ] || [ "$MONTH" -le 2 ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "Month $MONTH is out of season; skipping."
+          fi
+
+      - name: Trigger sync
+        if: steps.season.outputs.run == 'true' || github.event_name == 'workflow_dispatch'
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          APP_URL: ${{ vars.APP_URL || 'https://nfl-season-predictions.vercel.app' }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "CRON_SECRET is not set on this repository." >&2
+            exit 1
+          fi
+
+          # --fail-with-body so a non-2xx fails the job AND still prints what
+          # the server said. Without it a broken sync looks like a green run.
+          HTTP=$(curl --fail-with-body -sS -w '\n%{http_code}' \
+            --max-time 120 --retry 2 --retry-delay 10 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "$APP_URL/api/cron/sync-results") || STATUS=$?
+
+          BODY=$(printf '%s' "$HTTP" | sed '$d')
+          CODE=$(printf '%s' "$HTTP" | tail -n1)
+          echo "HTTP $CODE"
+          echo "$BODY"
+          # The response carries no secrets, so it is safe in the run log and
+          # is the quickest way to see what a given sync actually did.
+          echo "### Sync result" >> "$GITHUB_STEP_SUMMARY"
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          echo "$BODY" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          exit "${STATUS:-0}"
