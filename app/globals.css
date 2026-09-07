@@ -77,6 +77,35 @@ body {
   background-attachment: scroll, scroll, fixed;
 }
 
+/*
+ * A game card linked to from a club's schedule (/picks/5#game-123). Without
+ * something to catch the eye you arrive at a wall of near-identical cards
+ * with no idea which one you asked for. The ring fades after a few seconds
+ * so it does not become permanent furniture on a page people then work in.
+ */
+[id^="game-"]:target {
+  animation: game-target 2.8s ease-out forwards;
+}
+
+@keyframes game-target {
+  0%,
+  55% {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 45%, transparent);
+  }
+  100% {
+    border-color: var(--color-line);
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [id^="game-"]:target {
+    animation: none;
+    border-color: var(--color-accent);
+  }
+}
+
 /* Numeric columns -- records, spreads, points -- line up only if the digits
    are the same width. Applied to the cells rather than globally so prose
    keeps the proportional face. */

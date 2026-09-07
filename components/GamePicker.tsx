@@ -158,7 +158,13 @@ export function GamePicker({
   };
 
   return (
-    <li className="rounded-lg border border-line bg-surface p-3">
+    // The anchor a club's schedule links to (/picks/5#game-123). scroll-mt
+    // leaves a margin above the card when it is jumped to, so it lands with
+    // some context above it rather than flush against the top of the window.
+    <li
+      id={`game-${game.id}`}
+      className="scroll-mt-24 rounded-lg border border-line bg-surface p-3"
+    >
       <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-muted">
         <span>{formatKickoff(game.kickoffAt, game.kickoffTbd)}</span>
         {/* On a neutral-site game the home club's city is misleading -- these

@@ -78,7 +78,10 @@ export default async function TeamPage({ params }: PageProps<"/teams/[teamId]">)
                     name={opponent.name}
                     size={20}
                   />
-                  <span className="truncate">{opponent.location}</span>
+                  <span className="truncate">
+                    {opponent.location}{" "}
+                    <span className="text-ink-muted">{opponent.nickname}</span>
+                  </span>
                 </Link>
                 <span className="ml-auto flex items-center gap-3">
                   <span className="tabular text-xs text-ink-muted">
@@ -88,17 +91,30 @@ export default async function TeamPage({ params }: PageProps<"/teams/[teamId]">)
                       teamById.get(game.awayTeamId)?.abbreviation ?? "",
                     )}
                   </span>
-                  {picked === null ? (
-                    <span className="text-xs text-ink-muted">No pick</span>
-                  ) : (
-                    <span
-                      className={`text-xs font-semibold ${
-                        pickedThisTeam ? "text-win" : "text-loss"
-                      }`}
-                    >
-                      {pickedThisTeam ? "Win" : "Loss"}
-                    </span>
-                  )}
+                  {/* The pick itself is the link to where it is made, jumping
+                      to this exact game rather than the top of that week.
+                      Kept a SIBLING of the opponent link above, not a wrapper
+                      around the row: an anchor cannot nest inside another
+                      anchor, and the two destinations are genuinely
+                      different -- the club's name goes to the club, the
+                      game goes to the game. */}
+                  <Link
+                    href={`/picks/${game.week}#game-${game.id}`}
+                    className={`rounded border px-2 py-0.5 text-xs font-semibold transition-colors ${
+                      picked === null
+                        ? "border-line-strong text-ink-muted hover:border-accent hover:text-ink"
+                        : pickedThisTeam
+                          ? "border-win/50 bg-win/10 text-win hover:border-win"
+                          : "border-loss/50 bg-loss/10 text-loss hover:border-loss"
+                    }`}
+                    title={
+                      picked === null
+                        ? `Pick this game in week ${game.week}`
+                        : `Change this pick in week ${game.week}`
+                    }
+                  >
+                    {picked === null ? "Pick" : pickedThisTeam ? "Win" : "Loss"}
+                  </Link>
                 </span>
                 <span className="w-full text-[11px] text-ink-muted sm:w-auto sm:pl-2">
                   {formatKickoff(game.kickoffAt, game.kickoffTbd)}
