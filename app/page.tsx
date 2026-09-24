@@ -42,6 +42,14 @@ export default async function HomePage() {
   const session = await auth();
   const userId = session?.user?.id;
 
+  // Unreachable today: proxy.ts gates every route except /about and /privacy,
+  // so a signed-out request to "/" is redirected to /signin and never gets
+  // here. Kept deliberately -- it is the whole signed-out landing page, and
+  // it costs nothing to leave standing. Deleting it would mean that opening
+  // "/" to the public (the obvious future change) silently renders a page
+  // built entirely around `userId` being present, i.e. a crash. Do not go
+  // looking for it in the browser; you cannot see it without editing the
+  // proxy first.
   if (!userId) {
     return (
       <div className="mx-auto mt-12 max-w-lg text-center">
@@ -83,6 +91,10 @@ export default async function HomePage() {
   const seeds = seedPlayoffs(teams, ctx);
 
   const me = leaderboard.find((r) => r.userId === userId);
+  // Whether anything at all has been graded, as distinct from whether THIS
+  // user has anything graded -- the two say very different things and the
+  // card used to conflate them.
+  const anyoneGraded = leaderboard.some((r) => r.gamesGraded > 0);
   const myRank = leaderboard.findIndex((r) => r.userId === userId) + 1;
 
   return (
@@ -166,6 +178,13 @@ export default async function HomePage() {
                 {me.postseasonPoints > 0 && ` · +${me.postseasonPoints} postseason`}
               </p>
             </>
+          ) : anyoneGraded ? (
+            // Scoped to the reader. The old copy said "no games graded yet
+            // this season" whenever THIS user had nothing graded, which reads
+            // as "the season has not started" to a new member looking at a
+            // leaderboard that is, on the same session, showing dozens of
+            // graded games for everyone else.
+            "None of your picks have been graded yet."
           ) : (
             "No games graded yet this season."
           )}

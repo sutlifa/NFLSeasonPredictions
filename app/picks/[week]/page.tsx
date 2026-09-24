@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { auth } from "@/auth";
@@ -14,6 +15,24 @@ import {
   isLocked,
 } from "@/lib/queries";
 import { clearWeekAction, fillWeekAction, savePickAction } from "./actions";
+
+/**
+ * Every other route exports a static `title`; this one has to build it from
+ * the param, so it needs the function form. `params` is a Promise in this
+ * version of Next -- it is awaited here exactly as the page awaits it.
+ *
+ * A week outside 1-18 returns no title rather than throwing: the page itself
+ * calls notFound() for the same input, and a generateMetadata that throws
+ * would replace that 404 with a 500.
+ */
+export async function generateMetadata({
+  params,
+}: PageProps<"/picks/[week]">): Promise<Metadata> {
+  const { week: rawWeek } = await params;
+  const week = Number(rawWeek);
+  if (!isValidWeek(week)) return {};
+  return { title: `${getWeekLabel(week)} · NFL Predictions` };
+}
 
 export default async function PicksPage({ params }: PageProps<"/picks/[week]">) {
   const { week: rawWeek } = await params;

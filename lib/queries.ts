@@ -1,4 +1,5 @@
 import { sql } from "./db";
+import { isMarginBucketId } from "./margin";
 import { CURRENT_SEASON, REGULAR_SEASON_TYPE, TOTAL_WEEKS } from "./nfl";
 import { applyPredictedScores } from "./standings";
 import type { BracketSlot } from "./playoffs";
@@ -191,9 +192,17 @@ export async function savePick(
   season: number = CURRENT_SEASON,
 ): Promise<void> {
   const games = await sql<
-    { id: number; week: number; status: GameStatus; kickoff_at: Date | null }[]
+    {
+      id: number;
+      week: number;
+      status: GameStatus;
+      kickoff_at: Date | null;
+      home_team_id: number;
+      away_team_id: number;
+    }[]
   >`
-    SELECT id, week, status, kickoff_at FROM games WHERE id = ${input.gameId}
+    SELECT id, week, status, kickoff_at, home_team_id, away_team_id
+    FROM games WHERE id = ${input.gameId}
   `;
   const game = games[0];
   if (!game) throw new Error("No such game");
@@ -202,6 +211,29 @@ export async function savePick(
     (game.kickoff_at && game.kickoff_at.getTime() <= Date.now())
   ) {
     throw new Error("That game has already kicked off");
+  }
+  // The winner has to be one of the two clubs that are actually playing.
+  // Nothing else enforces this: the only constraint on the column is a
+  // foreign key to `teams`, so any of the 32 ids is accepted by the database,
+  // and the UI only ever offers two because the UI is a courtesy -- a
+  // hand-rolled server-action post can send whatever it likes. A winner that
+  // never played feeds computeStandings, then the tiebreakers, then playoff
+  // seeding, and there is no view anywhere that would show it as wrong. The
+  // two ids are read from the SELECT that was already happening, so this
+  // costs no extra round trip.
+  if (
+    input.winnerTeamId !== game.home_team_id &&
+    input.winnerTeamId !== game.away_team_id
+  ) {
+    throw new Error("That club is not playing in that game");
+  }
+  // Validated here as well as in savePickAction, because this is also called
+  // from fillWeekAction, which computes the bucket rather than reading it off
+  // a form -- and an out-of-range bucket would be stored happily and then
+  // read back by marginBucket() as undefined, blowing up somewhere far away
+  // from the write that caused it.
+  if (!isMarginBucketId(input.marginBucket)) {
+    throw new Error("Pick how big the margin will be.");
   }
 
   await sql`

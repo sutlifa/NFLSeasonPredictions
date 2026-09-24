@@ -56,16 +56,36 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
               </span>
             </Link>
 
-            {/* Inline nav is `md` and up only -- below that these links and
+            {/* Inline nav is `lg` and up only -- below that these links and
                 the sign-out button live in the folding menu instead of
-                wrapping onto three cramped lines. */}
+                wrapping onto three cramped lines.
+
+                The switch was `md` (768px) and the six links plus a name plus
+                the sign-out button do not fit in 768px: the header silently
+                became two rows all the way up to about 840px, and wider than
+                that for a real member, because the widest element here is a
+                full name ("Casey Whitfield") that nobody sees while testing
+                with a short one. 1024px is the first width that holds the
+                whole row with a long name, so 768-1023px uses the folding
+                menu -- which is the same trade the comment above always
+                intended, just at the breakpoint where it is actually true.
+
+                `lg` is stated in exactly three places, all of them in this
+                file: this block and the user/sign-out block are `lg:flex`,
+                and the MobileNav wrapper below is `lg:hidden`. MobileNav
+                itself declares no breakpoint on purpose. It used to carry its
+                own `sm:hidden`, and once the inline nav moved the two numbers
+                disagreed: between 640 and 1023px BOTH navs were hidden and a
+                signed-in user had no navigation and no way to sign out. If
+                this breakpoint moves again, move all three together and leave
+                MobileNav alone. */}
             {session?.user && (
-              <div className="hidden gap-1 md:flex md:flex-wrap">
+              <div className="hidden gap-1 lg:flex">
                 {NAV_LINKS.map((link) => (
                   <Link
                     key={link.href}
                     href={link.href}
-                    className="rounded px-2.5 py-1.5 font-medium text-ink-soft transition-colors hover:bg-surface-2 hover:text-ink"
+                    className="whitespace-nowrap rounded px-2.5 py-1.5 font-medium text-ink-soft transition-colors hover:bg-surface-2 hover:text-ink"
                   >
                     {link.label}
                   </Link>
@@ -74,11 +94,21 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             )}
 
             {session?.user && (
-              <div className="ml-auto hidden items-center gap-3 md:flex">
-                <span className="text-ink-muted">
+              <div className="ml-auto hidden items-center gap-3 lg:flex">
+                {/* Truncated rather than allowed to wrap: an unusually long
+                    name (or an email used as the fallback) is the one value
+                    here with no upper bound, and a second header row is a
+                    worse outcome than an ellipsis.
+
+                    The cap is tighter at lg than at xl because 1024px is only
+                    just wide enough for the six links plus the button; the
+                    room a long name can claim there is what is left over, not
+                    what looks generous. */}
+                <span className="max-w-[10rem] truncate whitespace-nowrap text-ink-muted xl:max-w-[20rem]">
                   {session.user.name ?? session.user.email}
                 </span>
                 <form
+                  className="shrink-0"
                   action={async () => {
                     "use server";
                     await signOut({ redirectTo: "/signin" });
@@ -86,7 +116,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
                 >
                   <button
                     type="submit"
-                    className="rounded border border-line-strong px-2.5 py-1 text-xs text-ink-soft hover:border-accent hover:text-ink"
+                    className="whitespace-nowrap rounded border border-line-strong px-2.5 py-1 text-xs text-ink-soft hover:border-accent hover:text-ink"
                   >
                     Sign out
                   </button>
@@ -95,7 +125,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             )}
 
             {session?.user && (
-              <div className="ml-auto md:hidden">
+              <div className="ml-auto lg:hidden">
                 <MobileNav
                   links={NAV_LINKS}
                   userLabel={session.user.name ?? session.user.email ?? ""}

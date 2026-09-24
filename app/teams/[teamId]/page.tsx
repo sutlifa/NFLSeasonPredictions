@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { auth } from "@/auth";
@@ -6,7 +7,26 @@ import { formatKickoff, formatSpreadDetail } from "@/lib/format";
 import { CURRENT_SEASON } from "@/lib/nfl";
 import { getSeasonGames, getTeams } from "@/lib/queries";
 import { computeStandings, resolveResults } from "@/lib/standings";
-import { formatRecord } from "@/lib/types";
+import { formatRecord, isFinal } from "@/lib/types";
+
+/**
+ * Built from the club rather than exported statically, since the name is the
+ * whole point of the title. `params` is a Promise in this version of Next.
+ *
+ * An unknown or non-numeric id returns no title instead of throwing, so
+ * /teams/9999 still renders the page's own 404 rather than a 500. getTeams()
+ * is a 32-row read of a small table, which is why this does not warrant a
+ * dedicated single-club query.
+ */
+export async function generateMetadata({
+  params,
+}: PageProps<"/teams/[teamId]">): Promise<Metadata> {
+  const { teamId: rawId } = await params;
+  const teamId = Number(rawId);
+  if (!Number.isInteger(teamId)) return {};
+  const team = (await getTeams()).find((t) => t.id === teamId);
+  return team ? { title: `${team.name} · NFL Predictions` } : {};
+}
 
 export default async function TeamPage({ params }: PageProps<"/teams/[teamId]">) {
   const { teamId: rawId } = await params;
@@ -57,7 +77,7 @@ export default async function TeamPage({ params }: PageProps<"/teams/[teamId]">)
             <span className="font-medium text-ink-soft">opponent&rsquo;s name</span>{" "}
             to open their schedule, or the{" "}
             <span className="font-medium text-ink-soft">
-              Pick / Win / Loss badge
+              pick badge
             </span>{" "}
             to jump straight to that game in your weekly picks.
           </p>
@@ -71,6 +91,12 @@ export default async function TeamPage({ params }: PageProps<"/teams/[teamId]">)
             if (!opponent) return null;
             const picked = game.predictedWinnerTeamId;
             const pickedThisTeam = picked === teamId;
+            // A game that has already been played cannot be picked, so the
+            // badge must not offer to. "Pick" on a final game sent people to
+            // a card where every button is disabled -- an invitation to do
+            // something impossible. The link stays: seeing the result is
+            // still worth the trip.
+            const played = isFinal(game);
             return (
               <li
                 key={game.id}
@@ -122,11 +148,21 @@ export default async function TeamPage({ params }: PageProps<"/teams/[teamId]">)
                     }`}
                     title={
                       picked === null
-                        ? `Pick this game in week ${game.week}`
-                        : `Change this pick in week ${game.week}`
+                        ? played
+                          ? `Not picked -- see this game in week ${game.week}`
+                          : `Pick this game in week ${game.week}`
+                        : played
+                          ? `See this game in week ${game.week}`
+                          : `Change this pick in week ${game.week}`
                     }
                   >
-                    {picked === null ? "Pick" : pickedThisTeam ? "Win" : "Loss"}
+                    {picked === null
+                      ? played
+                        ? "Missed"
+                        : "Pick"
+                      : pickedThisTeam
+                        ? "Win"
+                        : "Loss"}
                   </Link>
                 </span>
                 <span className="w-full text-[11px] text-ink-muted sm:w-auto sm:pl-2">

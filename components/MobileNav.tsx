@@ -15,8 +15,16 @@ type Props = {
 
 /**
  * The small-screen nav: a hamburger that folds the page links and the
- * sign-out button away until tapped. Hidden from `sm` up, where the layout
- * shows the normal inline nav instead.
+ * sign-out button away until tapped.
+ *
+ * This component deliberately declares NO breakpoint of its own. Which of the
+ * two navs is showing is one decision, and the layout owns it: app/layout.tsx
+ * renders this inside `ml-auto lg:hidden` and the inline nav inside `lg:flex`,
+ * so the pair is guaranteed to be mutually exclusive at every width. When the
+ * root div here also carried a `sm:hidden`, the two declarations drifted apart
+ * and 640-1023px showed NEITHER nav -- a signed-in user on an iPad in portrait
+ * had no way to reach any route or to sign out. Do not add a responsive class
+ * to the root div; change the wrapper in the layout instead.
  *
  * This has to be a client component rather than a CSS-only <details>
  * toggle: Next's <Link> navigates on the client, so a details-based menu
@@ -35,7 +43,7 @@ export function MobileNav({ links, userLabel, signOutAction }: Props) {
   const setOpen = (next: boolean) => setOpenedAt(next ? pathname : null);
 
   return (
-    <div className="sm:hidden">
+    <div>
       <button
         type="button"
         onClick={() => setOpen(!open)}
