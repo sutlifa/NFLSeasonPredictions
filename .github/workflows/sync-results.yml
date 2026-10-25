@@ -68,8 +68,20 @@ jobs:
 
           # --fail-with-body so a non-2xx fails the job AND still prints what
           # the server said. Without it a broken sync looks like a green run.
+          #
+          # Deliberately NO --retry here. curl's retry re-calls the WHOLE
+          # endpoint, and every call runs a full four-week sync and writes
+          # its own sync_runs row -- so the two 403 incidents on 2026-10-23
+          # and 2026-10-24 each recorded three failed rows and tripled our
+          # request load on ESPN during exactly the minutes ESPN was
+          # throttling us. The endpoint now retries individual ESPN requests
+          # itself (lib/espn.ts), which is the right granularity: it waits
+          # out a blip on one week without re-fetching the weeks that
+          # already succeeded. Retrying at this level on top of that is
+          # strictly worse. --max-time stays generous because those internal
+          # retries make a bad run slower than a good one.
           HTTP=$(curl --fail-with-body -sS -w '\n%{http_code}' \
-            --max-time 120 --retry 2 --retry-delay 10 \
+            --max-time 120 \
             -H "Authorization: Bearer $CRON_SECRET" \
             "$APP_URL/api/cron/sync-results") || STATUS=$?
 

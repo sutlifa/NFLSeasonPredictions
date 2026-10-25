@@ -29,17 +29,173 @@ const SITE_API = "https://site.api.espn.com/apis/site/v2/sports/football/nfl";
 const CORE_API =
   "https://sports.core.api.espn.com/v2/sports/football/leagues/nfl";
 
-async function fetchJson<T>(url: string): Promise<T> {
-  const res = await fetch(url, {
-    headers: { accept: "application/json" },
-    // These are ingest calls behind cron and scripts; Next's fetch cache
-    // would happily serve a stale scoreboard back during a live sync.
-    cache: "no-store",
-  });
-  if (!res.ok) {
-    throw new Error(`ESPN ${res.status} ${res.statusText} for ${url}`);
+/**
+ * A browser User-Agent.
+ *
+ * These endpoints are the ones espn.com's own scoreboard calls, so a request
+ * that looks like a browser is the request shape ESPN actually expects. The
+ * previous code sent no User-Agent at all, which leaves `node`/`undici` as
+ * the identity and is the obvious thing for a bot filter to key on. From a
+ * residential IP every header shape tried returned 200, so this was not the
+ * cause of the throttling incidents described below -- it is cheap insurance
+ * for the datacentre IPs Vercel and GitHub Actions call from, where the
+ * filter is far more likely to be looking.
+ */
+const BROWSER_USER_AGENT =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+  "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+
+/**
+ * Per-request timeout. ESPN's scoreboard normally answers in well under a
+ * second, so five seconds is roughly ten times the expected latency -- long
+ * enough that an ordinarily slow response is not mistaken for a failure, and
+ * short enough that three attempts still fit inside a 60s function budget
+ * (see the arithmetic in app/api/cron/sync-results/route.ts). Without an
+ * explicit deadline a single hung connection would hold the socket open
+ * until the platform killed the whole function, taking every other week's
+ * sync down with it.
+ */
+const FETCH_TIMEOUT_MS = 5_000;
+
+/** Three attempts total: the original call plus two retries. */
+const FETCH_ATTEMPTS = 3;
+
+/**
+ * These two numbers are not free to raise.
+ *
+ * `maxDuration = 60` in app/api/cron/sync-results/route.ts is the Hobby plan
+ * ceiling and it is the binding constraint on this whole retry design. The
+ * measured worst case -- every request failing, late in the season so the
+ * postseason bracket is also fetched -- lands around 51s, so the margin is
+ * only four or five seconds. Four things eat it:
+ *
+ *   - raising FETCH_TIMEOUT_MS (multiplied by three attempts, twice over:
+ *     once in the week loop and again in syncPostseason);
+ *   - raising FETCH_ATTEMPTS (adds a timeout *and* another backoff);
+ *   - raising WEEK_LOOP_BUDGET_MS in the route;
+ *   - letting `syncPostseason` issue its four requests sequentially instead
+ *     of through `Promise.all`. In parallel they cost one request's worth of
+ *     retry budget; in series they cost four, which blows the cap on its own.
+ *
+ * Blowing the cap is strictly worse than failing: Vercel kills the function,
+ * the caller gets a 504, and the `INSERT INTO sync_runs` at the end of the
+ * route never runs -- so the one incident worth diagnosing leaves no row at
+ * all, which is precisely the outcome this change was built to avoid. If one
+ * of these genuinely has to go up, re-do the arithmetic in the route and
+ * bring maxDuration up with it (which means leaving the Hobby plan).
+ */
+
+/** Base backoff; doubled per attempt and then jittered. See `backoffMs`. */
+const FETCH_BACKOFF_MS = 400;
+
+/**
+ * Which failures are worth trying again.
+ *
+ * **403 is in this list on purpose.** A 403 normally means "you are not
+ * allowed, and waiting will not change that", so retrying one looks like a
+ * mistake -- do not remove it on that reasoning. ESPN returns 403 as its
+ * *throttling* response on these undocumented endpoints, and it self-heals
+ * within minutes. The evidence: of 158 recorded sync runs since 2026-09-06,
+ * exactly 6 failed, all of them 403, and all of them inside two short
+ * incidents (three rows at 2026-10-23 03:11, three at 2026-10-24 23:43 --
+ * three rows each because the workflow was re-calling the whole endpoint).
+ * The runs immediately before and after each incident succeeded normally
+ * with the usual 57 games updated. A genuine ban would not look like that.
+ *
+ * 408/425/429 and the 5xx family are retried for the ordinary reasons.
+ * Everything else -- notably 404, which is what a week that does not exist
+ * returns -- fails immediately, because no amount of waiting invents data.
+ */
+function isRetryableStatus(status: number): boolean {
+  if (status === 403 || status === 408 || status === 425 || status === 429) {
+    return true;
   }
-  return (await res.json()) as T;
+  return status >= 500;
+}
+
+/**
+ * Exponential backoff with jitter.
+ *
+ * The jitter is load-bearing, not decoration. Two schedulers call the sync
+ * endpoint -- Vercel Cron daily and GitHub Actions every 15 minutes during
+ * game windows -- and they can fire within seconds of each other. With a
+ * fixed delay, two throttled callers would retry in lockstep and arrive at
+ * ESPN in the same instants, which is exactly the burst that got them
+ * throttled. Spreading each delay over a 2x range decorrelates them.
+ */
+function backoffMs(attempt: number): number {
+  const base = FETCH_BACKOFF_MS * 2 ** (attempt - 1);
+  return Math.round(base * (1 + Math.random()));
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+type Attempt<T> =
+  | { ok: true; value: T }
+  | { ok: false; error: Error; retryable: boolean };
+
+async function attemptFetchJson<T>(url: string): Promise<Attempt<T>> {
+  try {
+    const res = await fetch(url, {
+      headers: {
+        accept: "application/json",
+        "user-agent": BROWSER_USER_AGENT,
+      },
+      // These are ingest calls behind cron and scripts; Next's fetch cache
+      // would happily serve a stale scoreboard back during a live sync.
+      cache: "no-store",
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
+    if (!res.ok) {
+      return {
+        ok: false,
+        error: new Error(`ESPN ${res.status} ${res.statusText} for ${url}`),
+        retryable: isRetryableStatus(res.status),
+      };
+    }
+    return { ok: true, value: (await res.json()) as T };
+  } catch (err) {
+    // Everything that lands here is a transport-level problem: a DNS blip, a
+    // reset connection, the AbortSignal above firing, or a body that stopped
+    // arriving mid-JSON. All of those are worth one more try.
+    return {
+      ok: false,
+      error: err instanceof Error ? err : new Error(String(err)),
+      retryable: true,
+    };
+  }
+}
+
+async function fetchJson<T>(url: string): Promise<T> {
+  let lastError = new Error(`ESPN request to ${url} was never attempted`);
+  // The ATTEMPTS ACTUALLY SPENT, not FETCH_ATTEMPTS. The loop below breaks
+  // early on a non-retryable status, so the two numbers differ exactly when
+  // the distinction matters: a 404 makes one call, and reporting it as three
+  // would turn "that week does not exist" into "ESPN is down" in the one
+  // place anybody ever reads it back from (see the comment on the throw).
+  let attemptsSpent = 0;
+
+  for (let attempt = 1; attempt <= FETCH_ATTEMPTS; attempt++) {
+    attemptsSpent = attempt;
+    const result = await attemptFetchJson<T>(url);
+    if (result.ok) return result.value;
+
+    lastError = result.error;
+    if (!result.retryable || attempt === FETCH_ATTEMPTS) break;
+    await sleep(backoffMs(attempt));
+  }
+
+  // The caller still gets a thrown error once the attempts are spent, so a
+  // real outage is still an outage; the retries only absorb the transient
+  // case. Note the attempt count in the message -- it is the difference
+  // between "ESPN said no once" and "ESPN is actually down", and that
+  // distinction is what gets written into sync_runs.error.
+  const plural = attemptsSpent === 1 ? "attempt" : "attempts";
+  throw new Error(
+    `${lastError.message} (gave up after ${attemptsSpent} ${plural})`,
+  );
 }
 
 export type EspnTeam = {
